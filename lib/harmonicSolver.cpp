@@ -3,95 +3,90 @@
 
 # define TAU 6.28318530717958647692
 
-void interp(Vec3 &out, const HarmCacheMap &cache, int lowKey, int highKey, int tVal){
-	auto lit = cache.find(lowKey);
-	if (lit == cache.end()) return;
-
-	auto hit = cache.find(highKey);
-	if (hit == cache.end()) return;
-
-    const Vec3 &low = std::get<1>(lit->second);
-    const Vec3 &high = std::get<1>(hit->second);
+Vec3 interp(const HarmCacheIt &lowIt, const HarmCacheIt &highIt, int tVal){
+    // Calculate a linearly interpolated Vec3 for when the
+    // frame keys are not right next to each other
+    const Vec3 &low = std::get<1>(lowIt->second);
+    const Vec3 &high = std::get<1>(highIt->second);
+    int lowKey = lowIt->first;
+    int highKey = highIt->first;
 
     double perc = double(tVal - lowKey) / double(highKey - lowKey);
 
+    Vec3 out;
     for (size_t i=0; i<3; ++i){
         out[i] = low[i]*perc + high[i]*(1-perc);
     }
+    return out;
 }
 
-Vec3 calcAccel(const HarmCacheMap &cache, int prevKey, int curKey, int postKey){
-    Vec3 setter = {0.0, 0.0, 0.0};
-    Vec3 cur, prev, post;
+Vec3 calcAccel(const HarmCacheIt &prevIt, const HarmCacheIt &curIt, const HarmCacheIt &postIt){
+    // Calculate an acceleration given iterators to 3 harmCache values
+    int prevKey = prevIt->first;
+    int curKey = curIt->first;
+    int postKey = postIt->first;
 
-    auto curIt = cache.find(curKey);
-    auto prevIt = cache.find(prevKey);
-    auto postIt = cache.find(postKey);
+    Vec3 cur = std::get<1>(curIt->second);
+    Vec3 prev = std::get<1>(prevIt->second);
+    Vec3 post = std::get<1>(postIt->second);
 
-    if ( curIt == cache.end() || prevIt == cache.end() || postIt == cache.end())
-        return setter;
+    if (prevKey != curKey-1) prev = interp(prevIt, curIt, curKey-1);
+    if (postKey != curKey+1) post = interp(curIt, postIt, curKey+1);
 
-    cur = std::get<1>(curIt->second);
-    prev = std::get<1>(prevIt->second);
-    post = std::get<1>(postIt->second);
-
-    if (prevKey != curKey-1) interp(prev, cache, prevKey, curKey, curKey-1);
-    if (postKey != curKey+1) interp(post, cache, curKey, postKey, curKey+1);
-
-    for (size_t j=0; j<3; ++j) setter[j] = prev[j] - (2 * cur[j]) + post[j];
-
+    Vec3 setter;
+    for (size_t j=0; j<3; ++j)
+        setter[j] = prev[j] - (2 * cur[j]) + post[j];
     return setter;
 }
 
-void buildAllAccel(HarmCacheMap &cache, int &minTime, int &maxTime){
-    // read and sort integer keys
-    // if missing a key, interpolate to the next one
-    // if in the middle of interpolation, accel is zero
-
-    // Also, grab the min/max keys because I have to loop anyway
-    std::vector<int> keys;
-    keys.resize(cache.size());
-    minTime = cache.begin()->first;
-    maxTime = cache.begin()->first;
-
-    for (auto it=cache.begin(); it!=cache.end(); ++it){
-        minTime = (it->first < minTime) ? it->first : minTime;
-        maxTime = (it->first > maxTime) ? it->first : maxTime;
-        keys.push_back(it->first);
-    }
-    std::sort(keys.begin(), keys.end());
-
-    for (size_t i=1; i<keys.size()-1; ++i){
-        std::get<2>(cache[keys[i]]) = calcAccel(cache, keys[i-1], keys[i], keys[i+1]);
-    }
-}
-
-void updateAccel(HarmCacheMap &cache, std::vector<int> keys, int inserted){
+void buildAllAccel(HarmCacheMap &cache){
+    // Build all acceleration values at once
     if (cache.size() < 3) return;
-
-    // Binary search for the index
-    auto lb = std::lower_bound(keys.begin(), keys.end(), inserted);
-    if (lb == keys.end()) return;
-
-    size_t idx = lb - keys.begin();
-
-    if (idx >= 2)
-        std::get<2>(cache[keys[idx-1]]) = calcAccel(cache, keys[idx-2], keys[idx-1], keys[idx]);
-
-    if (idx >= 1 && idx <= cache.size()-2)
-        std::get<2>(cache[keys[idx]]) = calcAccel(cache, keys[idx-1], keys[idx], keys[idx+1]);
-
-    if (idx <= cache.size()-3)
-        std::get<2>(cache[keys[idx+1]]) = calcAccel(cache, keys[idx], keys[idx+1], keys[idx+2]);
+    auto start = ++cache.begin();
+    auto end = std::prev(cache.end());
+    for (auto it=start; it!=end; ++it){
+        auto i = it;
+        i = std::prev(i);
+        std::get<2>(it->second) = calcAccel(i++, i++, i++);
+    }
 }
 
-Vec3 harmonicSolver( int time, int minTime, int maxTime,
+void updateAccel(HarmCacheMap &cache, int inserted){
+    // Update the acceleration values near where we just
+    // inserted a new value
+    if (cache.size() < 3) return;
+    auto curIt = cache.find(inserted);
+    if (curIt == cache.end()) return;
+
+    for (size_t i = 0; i < 3; ++i){
+        // build two incremented iterators
+        // If we're out of bounds, continue
+        auto nxtIt = curIt; nxtIt++;
+        if (nxtIt == cache.end()) continue;
+        auto nxt2It = nxtIt; nxt2It++;
+        if (nxt2It == cache.end()) continue;
+
+        // calculate the accel
+        std::get<2>(nxtIt->second) = calcAccel(curIt, nxtIt, nxt2It);
+
+        // if we're going out of bounds at the start, just return
+        if (curIt == cache.begin()) return;
+        // do the previous triplet on the next loop
+        curIt = std::prev(curIt);
+    }
+}
+
+Vec3 harmonicSolver(int time,
         unsigned int waves, unsigned int length, double amp, double decay,
         const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache
         ){
 
     Vec3 val = {0.0, 0.0, 0.0};
-    // min/max time need to be cached
+
+    if (cache.size() < 3) return val;
+
+    auto minTime = cache.begin()->first;
+    auto maxTime = std::prev(cache.end())->first;
     if (time < minTime || time > maxTime) return val;
 
     double mval = (matchVelocity) ?  amp * length / TAU : amp;
@@ -101,10 +96,12 @@ Vec3 harmonicSolver( int time, int minTime, int maxTime,
     double dcl = decay / double(crvLen);
 
     for (size_t b=0; b<crvLen; ++b){
-
 		auto it = cache.find(time - b);
+        // Because I use linear interpolation to fill in missing data
+        // the acceleration would be 0, so I can skip it
+        if (it == cache.end()) continue;
+
 		const Vec3 &accel = std::get<2>(it->second);
-		
         double crv = sin(step * p2l) / exp(step * dcl);
 
         for (size_t i=0; i<3; ++i){

@@ -17,8 +17,6 @@
         return MS::kFailure;        \
     }
 
-
-
 MTypeId harmonics::id(0x001226F8);
 
 MObject harmonics::aOutput; // vector
@@ -50,7 +48,7 @@ MStatus harmonics::initialize(){
     MStatus stat;
 
     // Output translation vector
-    aOutput = nAttr.create("output", "output", MFnNumericData::k3Float, 0.0);
+    aOutput = nAttr.create("output", "output", MFnNumericData::k3Double, 0.0);
     nAttr.setWritable(false);
     nAttr.setHidden(true);
     stat = addAttribute(aOutput);
@@ -78,7 +76,7 @@ MStatus harmonics::initialize(){
     attributeAffects(aWaveLength, aOutput);
 
     // An overall multiplier on the wave amplitude
-    aAmplitude = nAttr.create("amplitude", "amplitude", MFnNumericData::kFloat, 1.0);
+    aAmplitude = nAttr.create("amplitude", "amplitude", MFnNumericData::kDouble, 1.0);
     nAttr.setKeyable(true);
     stat = addAttribute(aAmplitude);
     MCHECKERRORMSG(stat, "addAttribute: edgeLength")
@@ -94,7 +92,7 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "attributeAffects: axisAmp -> output");
 
     // The decay of the waves over time
-    aDecay = nAttr.create("decay", "decay", MFnNumericData::kFloat, 1.0);
+    aDecay = nAttr.create("decay", "decay", MFnNumericData::kDouble, 1.0);
     nAttr.setKeyable(true);
     stat = addAttribute(aDecay);
     MCHECKERRORMSG(stat, "addAttribute: decay")
@@ -112,7 +110,7 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "attributeAffects: time -> output");
 
     // The step size for this frame. REQUIRES RE-SIM TO UPDATE
-    aStep = nAttr.create("step", "step", MFnNumericData::kFloat, 1.0);
+    aStep = nAttr.create("step", "step", MFnNumericData::kDouble, 1.0);
     nAttr.setKeyable(true);
     stat = addAttribute(aStep);
     MCHECKERRORMSG(stat, "addAttribute: step")
@@ -152,6 +150,7 @@ MStatus harmonics::initialize(){
     stat = attributeAffects(aParent, aOutput);
     MCHECKERRORMSG(stat, "attributeAffects: parent -> output");
 
+
     // The custom storage data for this harmonic
     aStorage = tAttr.create("harmStorage", "harmStorage", HarmCacheProxy::id);
     tAttr.setWritable(false);
@@ -161,12 +160,15 @@ MStatus harmonics::initialize(){
     stat = attributeAffects(aStorage, aOutput);
     MCHECKERRORMSG(stat, "attributeAffects: harmStorage -> output");
 
+
     return MS::kSuccess;
 }
 
 MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     MStatus status;
     unsigned int i;
+
+
     if( plug == aStorage ) {
         // Matrix
         MDataHandle referenceH = data.inputValue(aReference, &status); // inverse world
@@ -206,21 +208,15 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
         Vec3 tran;
         tran[0] = mtran[0]; tran[1] = mtran[1]; tran[2] = mtran[2];
         storage[frame] = std::make_tuple(step, tran, zero);
+		updateAccel(storage, frame);
+
+		MDataHandle storageOutH = data.outputValue(aStorage, &status);
+		MCHECKERROR(status);
+		storageOutH.set(hcp);
 
     } 
     else if( plug == aOutput ) {
-
-        // Matrix
-        MDataHandle referenceH = data.inputValue(aReference, &status);
-        MCHECKERROR(status);
-        MDataHandle parentH = data.inputValue(aParent, &status);
-        MCHECKERROR(status);
-        MDataHandle inputH = data.inputValue(aInput, &status);
-        MCHECKERROR(status);
-
-        //bool
-        MDataHandle updateH = data.inputValue(aUpdate, &status);
-        MCHECKERROR(status);
+ 
         MDataHandle matchH = data.inputValue(aMatch, &status);
         MCHECKERROR(status);
 
@@ -247,6 +243,32 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
         //pluginData
         MDataHandle storageH = data.inputValue(aStorage, &status);
         MCHECKERROR(status);
+
+		auto frame = timeH.asInt();
+		auto waves = wavesH.asInt();
+		auto length = waveLengthH.asInt();
+		auto ampl = amplitudeH.asDouble();
+		auto decay = decayH.asDouble();
+		auto ampAxisRaw = axisAmpH.asDouble3();
+		auto matchVelocity = matchH.asBool();
+
+		Vec3 ampAxis;
+		ampAxis[0] = ampAxisRaw[0];
+		ampAxis[1] = ampAxisRaw[1];
+		ampAxis[2] = ampAxisRaw[2];
+
+		auto pd = storageH.asPluginData();
+		if (pd->typeId() != HarmCacheProxy::id) {
+			cerr << "Storage Handle is not HarmCacheProxy" << endl;
+			return MS::kFailure;
+		}
+		auto hcp = dynamic_cast<HarmCacheProxy*>(storageH.asPluginData());
+		HarmCacheMap &storage = hcp->getMap();
+		Vec3 ret = harmonicSolver(frame, waves, length, ampl, decay, ampAxis, matchVelocity, storage);
+
+		MDataHandle outH = data.outputValue(aOutput, &status);
+		MCHECKERROR(status);
+		outH.set3Double(ret[0], ret[1], ret[2]);
 
     } 
     else {
