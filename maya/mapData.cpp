@@ -10,6 +10,7 @@ void* HarmCacheProxy::creator(){
 }
 
 HarmCacheProxy::HarmCacheProxy() {
+	_harmCacheMap = HarmCacheMap();
 }
 
 HarmCacheProxy::~HarmCacheProxy() {
@@ -45,20 +46,24 @@ MString HarmCacheProxy::name() const {
 }
 
 MStatus HarmCacheProxy::readASCII(const MArgList& args, unsigned& lastParsedElement) {
+
     MStatus status;
     int argLength = args.length();
     if(argLength <= 0) {return MS::kFailure;} 
 
-    int numDataRecord = (argLength - lastParsedElement); 
+    unsigned int numDataRecord = (argLength - lastParsedElement); 
 
     if (numDataRecord % 5 != 0) {
         cerr << "warning: corrupted data for HarmCacheProxy" << endl;
     }
+
     numDataRecord /= 5;
     int fnum;
     double d;
-    std::array<double, 3> dd;
+	Vec3 ws;
+
     for (unsigned int i=0; i < numDataRecord; i++) {
+
         fnum = args.asInt(lastParsedElement++, &status);
         if (MS::kSuccess != status) {return MS::kFailure;}
 
@@ -66,11 +71,13 @@ MStatus HarmCacheProxy::readASCII(const MArgList& args, unsigned& lastParsedElem
         if (MS::kSuccess != status) {return MS::kFailure;}
 
         for (unsigned int j=0; j < 3; j++) {
-            dd[j] = args.asDouble(lastParsedElement++, &status);
+            ws[j] = args.asDouble(lastParsedElement++, &status);
             if (MS::kSuccess != status) {return MS::kFailure;}
         }
-        _harmCacheMap[fnum] = std::make_tuple(d, dd);
+
+        _harmCacheMap[fnum] = std::make_tuple(d, ws);
     }
+
     return MS::kSuccess;
 }
 
@@ -84,7 +91,7 @@ MStatus HarmCacheProxy::readBinary(istream& in, unsigned length) {
 
     int fnum;
     double d;
-    std::array<double, 3> dd;
+	Vec3 ws;
 
     for (unsigned int i=0; i < length; i++) {
 
@@ -95,11 +102,13 @@ MStatus HarmCacheProxy::readBinary(istream& in, unsigned length) {
         if (in.fail()){return MS::kFailure;}
 
         for (unsigned int j=0; j < 3; j++) {
-            in.read((char*) &dd[j], sizeof(dd[j]));
+            in.read((char*) &ws[j], sizeof(ws[j]));
             if (in.fail()){return MS::kFailure;}
         }
-        _harmCacheMap[fnum] = std::make_tuple(d, dd);
+
+        _harmCacheMap[fnum] = std::make_tuple(d, ws);
     }
+
     return MS::kSuccess;
 }
 
@@ -108,7 +117,6 @@ MStatus HarmCacheProxy::writeASCII(ostream& out) {
         auto key = it->first;
         auto step = std::get<0>(it->second);
         auto wsp = std::get<1>(it->second);
-        auto accel = std::get<2>(it->second);
 
         out << key << " ";
         if (out.fail()) return  MS::kFailure;
@@ -121,13 +129,6 @@ MStatus HarmCacheProxy::writeASCII(ostream& out) {
         out << wsp[1] << " ";
         if (out.fail()) return  MS::kFailure;
         out << wsp[2] << " ";
-        if (out.fail()) return  MS::kFailure;
-
-        out << accel[0] << " ";
-        if (out.fail()) return  MS::kFailure;
-        out << accel[1] << " ";
-        if (out.fail()) return  MS::kFailure;
-        out << accel[2] << " ";
         if (out.fail()) return  MS::kFailure;
     }
     return MS::kSuccess;
@@ -142,7 +143,6 @@ MStatus HarmCacheProxy::writeBinary(ostream& out) {
         auto key = it->first;
         auto step = std::get<0>(it->second);
         auto wsp = std::get<1>(it->second);
-        auto accel = std::get<2>(it->second);
 
         out.write((char*) &key, sizeof(key));
         if (out.fail()) return  MS::kFailure; 
@@ -155,13 +155,6 @@ MStatus HarmCacheProxy::writeBinary(ostream& out) {
         out.write((char*) &wsp[1], sizeof(wsp[1]));
         if (out.fail()) return  MS::kFailure; 
         out.write((char*) &wsp[2], sizeof(wsp[2]));
-        if (out.fail()) return  MS::kFailure; 
-
-        out.write((char*) &accel[0], sizeof(accel[0]));
-        if (out.fail()) return  MS::kFailure; 
-        out.write((char*) &accel[1], sizeof(accel[1]));
-        if (out.fail()) return  MS::kFailure; 
-        out.write((char*) &accel[2], sizeof(accel[2]));
         if (out.fail()) return  MS::kFailure; 
     }
     return MS::kSuccess;

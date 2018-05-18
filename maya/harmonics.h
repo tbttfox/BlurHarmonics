@@ -28,6 +28,7 @@ public:
 	static MObject aInput; // Matrix
 
 	static MObject aStorage; // harmonicMap
+	static MObject aAccel; // harmonicMap
 	static MObject aUpdate; // bool
 	static MObject aWaves; // int
 	static MObject aWaveLength; // int

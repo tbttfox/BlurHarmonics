@@ -4,9 +4,15 @@
 MStatus initializePlugin( MObject obj )
 { 
 	MStatus   status;
-	MFnPlugin plugin( obj, "Blur Studio", "2018", "Any");
+	MFnPlugin plugin(obj, "BlurStudio", "2018", "Any");
 
-	status = plugin.registerNode( "harmonic_maya", harmonics::id, harmonics::creator, harmonics::initialize );
+	status = plugin.registerData("harmonicCacheData", HarmCacheProxy::id, HarmCacheProxy::creator);
+	if (!status) {
+		status.perror("registerData");
+		return status;
+	}
+
+ 	status = plugin.registerNode("harmonics", harmonics::id, harmonics::creator, harmonics::initialize);
 	if (!status) {
 		status.perror("registerNode");
 		return status;
@@ -16,13 +22,19 @@ MStatus initializePlugin( MObject obj )
 
 MStatus uninitializePlugin( MObject obj)
 {
-	MStatus   status;
-	MFnPlugin plugin( obj );
+	MStatus   nodeStat, dataStat;
+	MFnPlugin plugin(obj);
 
-	status = plugin.deregisterNode( harmonics::id );
-	if (!status) {
-		status.perror("deregisterNode");
-		return status;
-	}
-	return status;
+	dataStat = plugin.deregisterData(HarmCacheProxy::id);
+	if (!dataStat)
+		dataStat.perror("deregisterData");
+
+	nodeStat = plugin.deregisterNode(harmonics::id);
+	if (!nodeStat)
+		nodeStat.perror("deregisterNode");
+	
+	if (!dataStat)
+		return dataStat;
+
+	return nodeStat;
 }

@@ -3,7 +3,7 @@
 
 # define TAU 6.28318530717958647692
 
-Vec3 interp(const HarmCacheIt &lowIt, const HarmCacheIt &highIt, int tVal){
+Vec3 interp(const HarmCacheCIt &lowIt, const HarmCacheCIt &highIt, int tVal){
     // Calculate a linearly interpolated Vec3 for when the
     // frame keys are not right next to each other
     const Vec3 &low = std::get<1>(lowIt->second);
@@ -20,7 +20,7 @@ Vec3 interp(const HarmCacheIt &lowIt, const HarmCacheIt &highIt, int tVal){
     return out;
 }
 
-Vec3 calcAccel(const HarmCacheIt &prevIt, const HarmCacheIt &curIt, const HarmCacheIt &postIt){
+Vec3 calcAccel(const HarmCacheCIt &prevIt, const HarmCacheCIt &curIt, const HarmCacheCIt &postIt){
     // Calculate an acceleration given iterators to 3 harmCache values
     int prevKey = prevIt->first;
     int curKey = curIt->first;
@@ -39,24 +39,31 @@ Vec3 calcAccel(const HarmCacheIt &prevIt, const HarmCacheIt &curIt, const HarmCa
     return setter;
 }
 
-void buildAllAccel(HarmCacheMap &cache){
+void buildAllAccel(const HarmCacheMap &cache, HarmCacheMap &accel){
     // Build all acceleration values at once
     if (cache.size() < 3) return;
-    auto start = ++cache.begin();
-    auto end = std::prev(cache.end());
+    HarmCacheCIt start = std::next(cache.begin());
+    HarmCacheCIt end = std::prev(cache.end());
     for (auto it=start; it!=end; ++it){
-        auto i = it;
-        i = std::prev(i);
-        std::get<2>(it->second) = calcAccel(i++, i++, i++);
+        double step = std::get<0>(it->second);
+        accel[it->first] = std::make_tuple(step, calcAccel(std::prev(it), it, std::next(it)));
     }
 }
 
-void updateAccel(HarmCacheMap &cache, int inserted){
+void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, int inserted){
     // Update the acceleration values near where we just
     // inserted a new value
-    if (cache.size() < 3) return;
-    auto curIt = cache.find(inserted);
-    if (curIt == cache.end()) return;
+
+	auto curIt = cache.find(inserted);
+	if (curIt == cache.end()) return;
+
+	
+	if (cache.size() < 3) {
+		double step = std::get<0>(curIt->second);
+		Vec3 zero = { 0.0, 0.0, 0.0 };
+		accel[inserted] = std::make_tuple(step, zero);
+		return;
+	}
 
     for (size_t i = 0; i < 3; ++i){
         // build two incremented iterators
@@ -67,7 +74,8 @@ void updateAccel(HarmCacheMap &cache, int inserted){
         if (nxt2It == cache.end()) continue;
 
         // calculate the accel
-        std::get<2>(nxtIt->second) = calcAccel(curIt, nxtIt, nxt2It);
+        double step = std::get<0>(nxtIt->second);
+        accel[nxtIt->first] = std::make_tuple(step, calcAccel(curIt, nxtIt, nxt2It));
 
         // if we're going out of bounds at the start, just return
         if (curIt == cache.begin()) return;
@@ -101,7 +109,7 @@ Vec3 harmonicSolver(int time,
         // the acceleration would be 0, so I can skip it
         if (it == cache.end()) continue;
 
-		const Vec3 &accel = std::get<2>(it->second);
+		const Vec3 &accel = std::get<1>(it->second);
         double crv = sin(step * p2l) / exp(step * dcl);
 
         for (size_t i=0; i<3; ++i){
