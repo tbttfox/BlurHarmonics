@@ -29,13 +29,14 @@ public:
 
 	static MObject aStorage; // harmonicMap
 	static MObject aAccel; // harmonicMap
-	static MObject aUpdate; // bool
+	//static MObject aUpdate; // bool
 	static MObject aWaves; // int
 	static MObject aWaveLength; // int
 	static MObject aAmplitude; // double
 	static MObject aAxisAmp; // vector
 	static MObject aDecay; // double
 	static MObject aMatch; // bool
+	static MObject aIgnoreFirst; //bool
 	static MObject aTime; // double
 	static MObject aStep; // double
 

@@ -1,4 +1,6 @@
 #include "mapData.h"
+#include <sstream>
+#include <string>
 
 //typedef HarmCacheMap std::unordered_map<int, HarmCacheData>;
 // frame: [step, [xval,  yval,  zval]]
@@ -46,7 +48,6 @@ MString HarmCacheProxy::name() const {
 }
 
 MStatus HarmCacheProxy::readASCII(const MArgList& args, unsigned& lastParsedElement) {
-
     MStatus status;
     int argLength = args.length();
     if(argLength <= 0) {return MS::kFailure;} 
@@ -63,7 +64,6 @@ MStatus HarmCacheProxy::readASCII(const MArgList& args, unsigned& lastParsedElem
 	Vec3 ws;
 
     for (unsigned int i=0; i < numDataRecord; i++) {
-
         fnum = args.asInt(lastParsedElement++, &status);
         if (MS::kSuccess != status) {return MS::kFailure;}
 
@@ -85,25 +85,32 @@ MStatus HarmCacheProxy::readBinary(istream& in, unsigned length) {
     if (length <= 0) {return MS::kFailure;}
 
     MStatus status;
-    unsigned int recNum;
+    unsigned recNum, rc=0;
     in.read((char*) &recNum, sizeof(recNum));
-    if (in.fail() || recNum > 0) {return MS::kSuccess;}
+	rc += sizeof(recNum);
+    if (in.fail() || recNum == 0) {return MS::kSuccess;}
 
-    int fnum;
+	int fnum;
     double d;
 	Vec3 ws;
 
-    for (unsigned int i=0; i < length; i++) {
+    for (unsigned i=0; i < recNum; i++) {
 
         in.read((char*) &fnum, sizeof(fnum));
-        if (in.fail()){return MS::kFailure;}
+		rc += sizeof(fnum);
+        if (in.fail()){
+			return MS::kFailure;}
 
         in.read((char*) &d, sizeof(d));
-        if (in.fail()){return MS::kFailure;}
+		rc += sizeof(d);
+        if (in.fail()){
+			return MS::kFailure;}
 
-        for (unsigned int j=0; j < 3; j++) {
+        for (unsigned j=0; j < 3; j++) {
             in.read((char*) &ws[j], sizeof(ws[j]));
-            if (in.fail()){return MS::kFailure;}
+			rc += sizeof(ws[j]);
+            if (in.fail()){
+				return MS::kFailure;}
         }
 
         _harmCacheMap[fnum] = std::make_tuple(d, ws);
@@ -113,30 +120,28 @@ MStatus HarmCacheProxy::readBinary(istream& in, unsigned length) {
 }
 
 MStatus HarmCacheProxy::writeASCII(ostream& out) {
+	// For some reason, maya was crashing if I just
+	// wrote directly to out. Writing to myOut, and
+	// writing that to out worked though. Whatever
+	std::ostringstream myOut;
     for (auto it=_harmCacheMap.begin(); it!=_harmCacheMap.end(); ++it){
-        auto key = it->first;
-        auto step = std::get<0>(it->second);
-        auto wsp = std::get<1>(it->second);
+        int key = it->first;
+        double step = std::get<0>(it->second);
+        Vec3 wsp = std::get<1>(it->second);
+		double a = wsp[0], b = wsp[1], c = wsp[2];
 
-        out << key << " ";
-        if (out.fail()) return  MS::kFailure;
-
-        out << step << " ";
-        if (out.fail()) return  MS::kFailure;
-
-        out << wsp[0] << " ";
-        if (out.fail()) return  MS::kFailure;
-        out << wsp[1] << " ";
-        if (out.fail()) return  MS::kFailure;
-        out << wsp[2] << " ";
-        if (out.fail()) return  MS::kFailure;
+        myOut << key << " " << step << " " << a << " " << b << " " << c << " ";
+        if (myOut.fail()) return MS::kFailure;
     }
+	std::string ss = myOut.str();
+	out << ss;
+	if (out.fail()) return MS::kFailure;
     return MS::kSuccess;
 }
 
 MStatus HarmCacheProxy::writeBinary(ostream& out) {
     MStatus status;
-    auto len = _harmCacheMap.size();
+    unsigned len = _harmCacheMap.size();
     out.write((char*) &len, sizeof(len));
     if (out.fail()) return MS::kFailure;
     for (auto it=_harmCacheMap.begin(); it!=_harmCacheMap.end(); ++it){

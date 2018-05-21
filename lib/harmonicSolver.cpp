@@ -3,14 +3,9 @@
 
 # define TAU 6.28318530717958647692
 
-Vec3 interp(const HarmCacheCIt &lowIt, const HarmCacheCIt &highIt, int tVal){
+Vec3 interp(const Vec3 &low, int lowKey, const Vec3 &high, int highKey, int tVal){
     // Calculate a linearly interpolated Vec3 for when the
     // frame keys are not right next to each other
-    const Vec3 &low = std::get<1>(lowIt->second);
-    const Vec3 &high = std::get<1>(highIt->second);
-    int lowKey = lowIt->first;
-    int highKey = highIt->first;
-
     double perc = double(tVal - lowKey) / double(highKey - lowKey);
 
     Vec3 out;
@@ -18,6 +13,28 @@ Vec3 interp(const HarmCacheCIt &lowIt, const HarmCacheCIt &highIt, int tVal){
         out[i] = low[i]*perc + high[i]*(1-perc);
     }
     return out;
+}
+
+Vec3 interp(const HarmCacheCIt &lowIt, const HarmCacheCIt &highIt, int tVal){
+    // Calculate a linearly interpolated Vec3 for when the
+    // frame keys are not right next to each other
+    const Vec3 &low = std::get<1>(lowIt->second);
+    const Vec3 &high = std::get<1>(highIt->second);
+    int lowKey = lowIt->first;
+    int highKey = highIt->first;
+    return interp(low, lowKey, high, highKey, tVal);
+}
+
+Vec3 calcAccel(const Vec3 &cur, int curKey, const Vec3 &rprev, int prevKey, const Vec3 &rpost, int postKey){
+    Vec3 prev = rprev, post = rpost;
+
+    if (prevKey != curKey-1) prev = interp(prev, prevKey, cur, curKey, curKey-1);
+    if (postKey != curKey+1) post = interp(cur, curKey, post, postKey, curKey+1);
+
+    Vec3 setter;
+    for (size_t j=0; j<3; ++j)
+        setter[j] = prev[j] - (2 * cur[j]) + post[j];
+    return setter;
 }
 
 Vec3 calcAccel(const HarmCacheCIt &prevIt, const HarmCacheCIt &curIt, const HarmCacheCIt &postIt){
@@ -30,13 +47,7 @@ Vec3 calcAccel(const HarmCacheCIt &prevIt, const HarmCacheCIt &curIt, const Harm
     Vec3 prev = std::get<1>(prevIt->second);
     Vec3 post = std::get<1>(postIt->second);
 
-    if (prevKey != curKey-1) prev = interp(prevIt, curIt, curKey-1);
-    if (postKey != curKey+1) post = interp(curIt, postIt, curKey+1);
-
-    Vec3 setter;
-    for (size_t j=0; j<3; ++j)
-        setter[j] = prev[j] - (2 * cur[j]) + post[j];
-    return setter;
+    return calcAccel(cur, curKey, prev, prevKey, post, postKey);
 }
 
 void buildAllAccel(const HarmCacheMap &cache, HarmCacheMap &accel){
@@ -53,11 +64,9 @@ void buildAllAccel(const HarmCacheMap &cache, HarmCacheMap &accel){
 void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, int inserted){
     // Update the acceleration values near where we just
     // inserted a new value
-
 	auto curIt = cache.find(inserted);
 	if (curIt == cache.end()) return;
 
-	
 	if (cache.size() < 3) {
 		double step = std::get<0>(curIt->second);
 		Vec3 zero = { 0.0, 0.0, 0.0 };
@@ -78,7 +87,24 @@ void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, int inserted){
         accel[nxtIt->first] = std::make_tuple(step, calcAccel(curIt, nxtIt, nxt2It));
 
         // if we're going out of bounds at the start, just return
-        if (curIt == cache.begin()) return;
+        if (curIt == cache.begin()){
+            // Get the acceleration on the first frame
+            // assuming that everything is at rest outside of range
+            // This can be ignored later in the solver
+            int curKey = curIt->first;
+            int postKey = nxtIt->first;
+            int prevKey = curKey - 1;
+
+            Vec3 cur = std::get<1>(curIt->second);
+            Vec3 post = std::get<1>(nxtIt->second);
+            Vec3 prev = {0.0, 0.0, 0.0};
+
+            Vec3 vacc = calcAccel(cur, curKey, prev, prevKey, post, postKey);
+            double step = std::get<0>(curIt->second);
+            accel[curKey] = std::make_tuple(step, vacc);
+            return;
+        }
+
         // do the previous triplet on the next loop
         curIt = std::prev(curIt);
     }
@@ -86,7 +112,8 @@ void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, int inserted){
 
 Vec3 harmonicSolver(int time,
         unsigned int waves, unsigned int length, double amp, double decay,
-        const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache
+        const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache,
+        bool ignoreInitialAccel
         ){
 
     Vec3 val = {0.0, 0.0, 0.0};
@@ -94,8 +121,7 @@ Vec3 harmonicSolver(int time,
     if (cache.size() < 3) return val;
 
     auto minTime = cache.begin()->first;
-    auto maxTime = std::prev(cache.end())->first;
-    if (time < minTime || time > maxTime) return val;
+    if (time < minTime) return val;
 
     double mval = (matchVelocity) ?  amp * length / TAU : amp;
     unsigned int crvLen = waves * length;
@@ -107,7 +133,12 @@ Vec3 harmonicSolver(int time,
 		auto it = cache.find(time - b);
         // Because I use linear interpolation to fill in missing data
         // the acceleration would be 0, so I can skip it
-        if (it == cache.end()) continue;
+        if (it == cache.end()){
+			step += 1.0;
+			continue;
+		}
+		if (time - b < minTime) break;
+        if (ignoreInitialAccel && (time - b == minTime)) break;
 
 		const Vec3 &accel = std::get<1>(it->second);
         double crv = sin(step * p2l) / exp(step * dcl);
