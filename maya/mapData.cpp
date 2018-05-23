@@ -125,7 +125,7 @@ MStatus HarmCacheProxy::writeASCII(ostream& out) {
 	// writing that to out worked though. Whatever
 	std::ostringstream myOut;
     for (auto it=_harmCacheMap.begin(); it!=_harmCacheMap.end(); ++it){
-        int key = it->first;
+        double key = it->first;
         double step = std::get<0>(it->second);
         Vec3 wsp = std::get<1>(it->second);
 		double a = wsp[0], b = wsp[1], c = wsp[2];

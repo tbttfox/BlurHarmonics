@@ -4,7 +4,9 @@
 #include <maya/MDataHandle.h>
 #include <maya/MFnPluginData.h>
 #include <maya/MFnMatrixAttribute.h>
+#include <maya/MFnUnitAttribute.h>
 #include <maya/MMatrix.h>
+#include <maya/MTime.h>
 
 
 #define MCHECKERROR(STAT)         \
@@ -48,11 +50,11 @@ MStatus harmonics::initialize(){
     MFnTypedAttribute tAttr;
     MFnMatrixAttribute mAttr;
     MFnNumericAttribute nAttr;
+    MFnUnitAttribute uAttr;
     MStatus stat;
 
     // Output translation vector
     aOutput = nAttr.create("output", "output", MFnNumericData::k3Double, 0.0);
-	//nAttr.setCached(false);
     nAttr.setWritable(false);
     nAttr.setHidden(true);
     stat = addAttribute(aOutput);
@@ -61,7 +63,6 @@ MStatus harmonics::initialize(){
 	// The custom storage data for this harmonic
 	aAccel = tAttr.create("accelStorage", "accelStorage", HarmCacheProxy::id, MObject::kNullObj, &stat);
 	MCHECKERRORMSG(stat, "createAttribute: accelStorage");
-	//tAttr.setCached(false);
 	tAttr.setHidden(true);
 	stat = addAttribute(aAccel);
 	MCHECKERRORMSG(stat, "addAttribute: accelStorage");
@@ -71,7 +72,6 @@ MStatus harmonics::initialize(){
 	// The custom storage data for this harmonic
 	aStorage = tAttr.create("harmStorage", "harmStorage", HarmCacheProxy::id, MObject::kNullObj, &stat);
 	MCHECKERRORMSG(stat, "createAttribute: harmStorage");
-	//tAttr.setCached(false);
 	tAttr.setHidden(true);
 	stat = addAttribute(aStorage);
 	MCHECKERRORMSG(stat, "addAttribute: harmStorage");
@@ -141,9 +141,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput")
 
 	// The input time value
-	aTime = nAttr.create("timeIn", "timeIn", MFnNumericData::kInt, 0);
-	nAttr.setKeyable(true);
-	//nAttr.setCached(false);
+	aTime = uAttr.create("timeIn", "timeIn", MFnUnitAttribute::kTime);
+	uAttr.setKeyable(true);
 	stat = addAttribute(aTime);
 	MCHECKERRORMSG(stat, "addAttribute: time");
 	stat = attributeAffects(aTime, aOutput);
@@ -151,7 +150,6 @@ MStatus harmonics::initialize(){
 
 	// Flag on whether to update the stored harmonic data
 	aUpdate = nAttr.create("update", "update", MFnNumericData::kBoolean, false);
-	//nAttr.setCached(false);
 	stat = addAttribute(aUpdate);
 	MCHECKERRORMSG(stat, "addAttribute: update");
 	stat = attributeAffects(aUpdate, aOutput);
@@ -206,41 +204,46 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 
 		// Get simple input data
 		auto step = stepH.asDouble();
-		auto frame = timeH.asInt();
 
-		// Get the reference-space translation
-		MMatrix mat;
-		mat.setToProduct(inputH.asMatrix(), parentH.asMatrix());
-		mat.setToProduct(mat, referenceH.asMatrix());
+		MTime time = timeH.asTime();
+		double dframe = time.value();
+		int frame = (int)dframe;
+		// only store integer frames, otherwise things get crazy
+		if (dframe == (double)frame) {
+			// Get the reference-space translation
+			MMatrix mat;
+			mat.setToProduct(inputH.asMatrix(), parentH.asMatrix());
+			mat.setToProduct(mat, referenceH.asMatrix());
 
-		// Get the storage input data object
-		// Gotta make sure I don't define any of these things in a namespace
-		auto pd = storageH.asPluginData();
-		HarmCacheMap inMap;
-		HarmCacheProxy *inStore, *outStore;
-		if (pd == nullptr)
-			inStore = (HarmCacheProxy *) HarmCacheProxy::creator();
-		else
-			inStore = (HarmCacheProxy *) pd;
+			// Get the storage input data object
+			// Gotta make sure I don't define any of these things in a namespace
+			auto pd = storageH.asPluginData();
+			HarmCacheMap inMap;
+			HarmCacheProxy *inStore, *outStore;
+			if (pd == nullptr)
+				inStore = (HarmCacheProxy *) HarmCacheProxy::creator();
+			else
+				inStore = (HarmCacheProxy *) pd;
 
-		// Build the storage output data object
-		MFnPluginData fnDataCreator;
-		MTypeId tmpid(HarmCacheProxy::id);
-		fnDataCreator.create(tmpid, &status);
-		MCHECKERROR(status);
-		outStore = (HarmCacheProxy*)fnDataCreator.data(&status);
-		MCHECKERROR(status);
+			// Build the storage output data object
+			MFnPluginData fnDataCreator;
+			MTypeId tmpid(HarmCacheProxy::id);
+			fnDataCreator.create(tmpid, &status);
+			MCHECKERROR(status);
+			outStore = (HarmCacheProxy*)fnDataCreator.data(&status);
+			MCHECKERROR(status);
 
-		// Build the new data
-		auto storage = inStore->getMap();
-		Vec3 tran;
-		auto mtran = mat[3]; // the matrix translation column
-		tran[0] = mtran[0]; tran[1] = mtran[1]; tran[2] = mtran[2];
-		storage[frame] = std::make_tuple(step, tran);
+			// Build the new data
+			auto storage = inStore->getMap();
+			Vec3 tran;
+			auto mtran = mat[3]; // the matrix translation column
+			tran[0] = mtran[0]; tran[1] = mtran[1]; tran[2] = mtran[2];
+			storage[frame] = std::make_tuple(step, tran);
 
-		outStore->getMap() = storage;
-		// Set the output plug
-		storageH.setMPxData(outStore);
+			outStore->getMap() = storage;
+			// Set the output plug
+			storageH.setMPxData(outStore);
+		}
     } 
     else if( plug == aAccel ) {
 		// Input Data
@@ -252,37 +255,42 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		MDataHandle accelH = data.outputValue(aAccel, &status);
 		MCHECKERROR(status);
 
-		auto frame = timeH.asInt();
+		MTime time = timeH.asTime();
+		double dframe = time.value();
 
-		// Get input data
-		auto storePD = storageH.asPluginData();
-		HarmCacheProxy *hcpStore;
-		if (storePD == nullptr)
-			return MS::kFailure;
-		hcpStore = (HarmCacheProxy *)storePD;
-		HarmCacheMap &storage = hcpStore->getMap();
+		// Only store integer frames otherwise things get crazy
+		int frame = (int)dframe;
+		if (dframe == double(frame)) {
+			// Get input data
+			auto storePD = storageH.asPluginData();
+			HarmCacheProxy *hcpStore;
+			if (storePD == nullptr)
+				return MS::kFailure;
+			hcpStore = (HarmCacheProxy *)storePD;
+			HarmCacheMap &storage = hcpStore->getMap();
 
-		// Get the old value of accel
-		HarmCacheProxy *inAccel, *outAccel;
-		auto accelPD = accelH.asPluginData();
-		if (accelPD == nullptr)
-			inAccel = (HarmCacheProxy *) HarmCacheProxy::creator();
-		else
-			inAccel = (HarmCacheProxy *) accelPD;
+			// Get the old value of accel
+			HarmCacheProxy *inAccel, *outAccel;
+			auto accelPD = accelH.asPluginData();
+			if (accelPD == nullptr)
+				inAccel = (HarmCacheProxy *) HarmCacheProxy::creator();
+			else
+				inAccel = (HarmCacheProxy *) accelPD;
 
-		// build the output object for accel
-		MFnPluginData fnDataCreator;
-		MTypeId tmpid(HarmCacheProxy::id);
-		fnDataCreator.create(tmpid, &status);
-		MCHECKERROR(status);
-		outAccel = (HarmCacheProxy*)fnDataCreator.data(&status);
-		MCHECKERROR(status);
+			// build the output object for accel
+			MFnPluginData fnDataCreator;
+			MTypeId tmpid(HarmCacheProxy::id);
+			fnDataCreator.create(tmpid, &status);
+			MCHECKERROR(status);
+			outAccel = (HarmCacheProxy*)fnDataCreator.data(&status);
+			MCHECKERROR(status);
 
-		// set the data
-		HarmCacheMap &accel = inAccel->getMap();
-		updateAccel(storage, accel, frame);
-		outAccel->getMap() = accel;
-		accelH.setMPxData(outAccel);
+			// set the data
+			HarmCacheMap &accel = inAccel->getMap();
+			updateAccel(storage, accel, frame);
+			outAccel->getMap() = accel;
+			accelH.setMPxData(outAccel);
+		}
     } 
     else if( plug == aOutput ) {
 		// bool
@@ -319,7 +327,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		MDataHandle outH = data.outputValue(aOutput, &status);
 		MCHECKERROR(status);
 
-		auto frame = timeH.asInt();
+		auto frame = timeH.asTime().value();
 		auto waves = wavesH.asInt();
 		auto length = waveLengthH.asInt();
 		auto ampl = amplitudeH.asDouble();
