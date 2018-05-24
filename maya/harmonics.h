@@ -38,6 +38,7 @@ public:
 	static MObject aAmplitude; // double
 	static MObject aAxisAmp; // vector
 	static MObject aDecay; // double
+	static MObject aTermination; // double
 	static MObject aNormAmp; // bool
 	static MObject aIgnoreFirst; //bool
 	static MObject aTime; // double

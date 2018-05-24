@@ -36,6 +36,7 @@ MObject harmonics::aWaveLength; // int
 MObject harmonics::aAmplitude; // double
 MObject harmonics::aAxisAmp; // vector
 MObject harmonics::aDecay; // double
+MObject harmonics::aTermination; // double
 MObject harmonics::aNormAmp; // bool
 MObject harmonics::aIgnoreFirst; //bool
 MObject harmonics::aTime; // double
@@ -67,7 +68,7 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aAccel);
 	MCHECKERRORMSG(stat, "addAttribute: accelStorage");
 	stat = attributeAffects(aAccel, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aAccel -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aAccel -> aOutput");
 
 	// The custom storage data for this harmonic
 	aStorage = tAttr.create("harmStorage", "harmStorage", HarmCacheProxy::id, MObject::kNullObj, &stat);
@@ -76,7 +77,7 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aStorage);
 	MCHECKERRORMSG(stat, "addAttribute: harmStorage");
 	stat = attributeAffects(aStorage, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aStorage -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aStorage -> aOutput");
 
 	// The number of waves each impulse causes
 	aWaves = nAttr.create("numWaves", "numWaves", MFnNumericData::kInt, 5);
@@ -84,7 +85,7 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aWaves);
 	MCHECKERRORMSG(stat, "addAttribute: numWaves");
 	stat = attributeAffects(aWaves, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput");
 
 	// The length of the waves
 	aWaveLength = nAttr.create("waveLength", "waveLength", MFnNumericData::kInt, 5);
@@ -92,7 +93,7 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aWaveLength);
 	MCHECKERRORMSG(stat, "addAttribute: waveLength");
 	stat = attributeAffects(aWaveLength, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput");
 
 	// An overall multiplier on the wave amplitude
 	aAmplitude = nAttr.create("amplitude", "amplitude", MFnNumericData::kDouble, 1.0);
@@ -100,7 +101,7 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aAmplitude);
 	MCHECKERRORMSG(stat, "addAttribute: amplitude");
 	stat = attributeAffects(aAmplitude, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutput");
 
 	// The per-axis (relative to the reference) amplitude multipliers
 	aAxisAmp = nAttr.create("axisAmp", "axisAmp", MFnNumericData::k3Double, 1.0);
@@ -108,29 +109,40 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aAxisAmp);
 	MCHECKERRORMSG(stat, "addAttribute: axisAmp");
 	stat = attributeAffects(aAxisAmp, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput");
+
+    // The decay of the waves over time
+    aDecay = nAttr.create("decay", "decay", MFnNumericData::kDouble, 3.0);
+    nAttr.setKeyable(true);
+	nAttr.setMin(0.0);
+    stat = addAttribute(aDecay);
+    MCHECKERRORMSG(stat, "addAttribute: decay");
+	stat = attributeAffects(aDecay, aOutput);
+	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutput");
+
+	// The decay of the waves over time
+	aTermination = nAttr.create("termination", "termination", MFnNumericData::kDouble, 0.0);
+	nAttr.setKeyable(true);
+	nAttr.setSoftMin(0.0);
+	nAttr.setSoftMax(1.0);
+	stat = addAttribute(aTermination);
+	MCHECKERRORMSG(stat, "addAttribute: termination");
+	stat = attributeAffects(aTermination, aOutput);
+	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aOutput");
 
 	// Scale the amplitude so impulses retain velocity. Uses absolute value otherwise
 	aNormAmp = nAttr.create("normalizeAmplitude", "normalizeAmplitude", MFnNumericData::kBoolean, false);
 	stat = addAttribute(aNormAmp);
 	MCHECKERRORMSG(stat, "addAttribute: normalizeAmplitude");
 	stat = attributeAffects(aNormAmp, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput");
 
 	// Scale the amplitude so impulses retain velocity. Uses absolute value otherwise
 	aIgnoreFirst = nAttr.create("ignoreFirstFrame", "ignoreFirstFrame", MFnNumericData::kBoolean, true);
 	stat = addAttribute(aIgnoreFirst);
 	MCHECKERRORMSG(stat, "addAttribute: ignoreFirstFrame");
 	stat = attributeAffects(aIgnoreFirst, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutput")
-
-    // The decay of the waves over time
-    aDecay = nAttr.create("decay", "decay", MFnNumericData::kDouble, 5.0);
-    nAttr.setKeyable(true);
-    stat = addAttribute(aDecay);
-    MCHECKERRORMSG(stat, "addAttribute: decay");
-	stat = attributeAffects(aDecay, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutput");
 
     // The step size for this frame. REQUIRES RE-SIM TO UPDATE
     aStep = nAttr.create("step", "step", MFnNumericData::kDouble, 1.0);
@@ -138,7 +150,7 @@ MStatus harmonics::initialize(){
     stat = addAttribute(aStep);
     MCHECKERRORMSG(stat, "addAttribute: step");
 	stat = attributeAffects(aStep, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput");
 
 	// The input time value
 	aTime = uAttr.create("timeIn", "timeIn", MFnUnitAttribute::kTime);
@@ -146,14 +158,14 @@ MStatus harmonics::initialize(){
 	stat = addAttribute(aTime);
 	MCHECKERRORMSG(stat, "addAttribute: time");
 	stat = attributeAffects(aTime, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput");
 
 	// Flag on whether to update the stored harmonic data
 	aUpdate = nAttr.create("update", "update", MFnNumericData::kBoolean, false);
 	stat = addAttribute(aUpdate);
 	MCHECKERRORMSG(stat, "addAttribute: update");
 	stat = attributeAffects(aUpdate, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput");
 
     // The worldspace matrix whose space we calculate relative to
     aReference = mAttr.create("reference", "reference", MFnMatrixAttribute::kDouble);
@@ -161,7 +173,7 @@ MStatus harmonics::initialize(){
     mAttr.setHidden(true);
 	MCHECKERRORMSG(stat, "addAttribute: reference");
 	stat = attributeAffects(aReference, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput");
 
 	// The local input matrix
     aInput = mAttr.create("input", "input", MFnMatrixAttribute::kDouble);
@@ -169,7 +181,7 @@ MStatus harmonics::initialize(){
     mAttr.setHidden(true);
     MCHECKERRORMSG(stat, "addAttribute: input");
 	stat = attributeAffects(aInput, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutput");
 
     // The world parent inverse matrix so the output can be in local space
     aParent = mAttr.create("parent", "parent", MFnMatrixAttribute::kDouble);
@@ -177,7 +189,7 @@ MStatus harmonics::initialize(){
     mAttr.setHidden(true);
     MCHECKERRORMSG(stat, "addAttribute: parent");
 	stat = attributeAffects(aParent, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aOutput")
+	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aOutput");
 
     return MS::kSuccess;
 }
@@ -310,6 +322,8 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
         MCHECKERROR(status);
         MDataHandle decayH = data.inputValue(aDecay, &status);
         MCHECKERROR(status);
+		MDataHandle termH = data.inputValue(aTermination, &status);
+		MCHECKERROR(status);
         MDataHandle timeH = data.inputValue(aTime, &status);
         MCHECKERROR(status);
         MDataHandle stepH = data.inputValue(aStep, &status);
@@ -332,6 +346,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		auto length = waveLengthH.asInt();
 		auto ampl = amplitudeH.asDouble();
 		auto decay = decayH.asDouble();
+		auto term = termH.asDouble();
 		auto ampAxisRaw = axisAmpH.asDouble3();
 		auto normAmp = normAmpH.asBool();
 		auto ignoreFirst = ignoreH.asBool();
@@ -346,7 +361,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			auto hcp = dynamic_cast<HarmCacheProxy*>(pd);
 			HarmCacheMap &accel = hcp->getMap();
 			if (!accel.empty()) {
-				Vec3 ret = harmonicSolver(frame, waves, length, ampl, decay, ampAxis, !normAmp, accel, ignoreFirst);
+				Vec3 ret = harmonicSolver(frame, waves, length, ampl, decay, term, ampAxis, !normAmp, accel, ignoreFirst);
 				outH.set3Double(ret[0], ret[1], ret[2]);
 			}
 		}

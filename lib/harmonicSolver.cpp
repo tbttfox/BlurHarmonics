@@ -129,13 +129,16 @@ double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey
 	else{
 		double nKey = nit->first;
 		double pStep = std::get<0>(it->second);
-		return pStep * (tKey - pKey) / (nKey - pKey);
+		double nStep = std::get<0>(nit->second);
+		double perc = (tKey - pKey) / (nKey - pKey);
+		return (pStep * (1.0 - perc) + nStep * perc) * perc;
 	}
 }
 
 // Solve the simple harmonic for the given time value
 Vec3 harmonicSolver(double time,
         unsigned int waves, unsigned int length, double amp, double decay,
+		double term,
         const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache,
         bool ignoreInitialAccel
         ){
@@ -147,22 +150,32 @@ Vec3 harmonicSolver(double time,
 	--it; // step to the iterator pointing to the preceeding (or equal) map item
 
 	double step = handleEdge(cache, it, time);
-    double mval = (matchVelocity) ?  amp * length / TAU : amp;
-    unsigned int crvLen = waves * length;
-    double p2l = TAU / double(length);
-    double dcl = decay / double(crvLen);
-	double crv;
+    double mvel = (matchVelocity) ?  amp * length / TAU : amp;
 
+    double crvLen = waves * length;
+    double p2l = TAU / length;
+	double edl = exp(-decay) / crvLen;
+	double dl = -decay / crvLen;
+
+	double crv;
 	while (step < crvLen){
 		if (ignoreInitialAccel && it == cache.begin()) break;
-
 		const Vec3 &accel = std::get<1>(it->second);
-        crv = sin(step * p2l) / exp(step * dcl);
-        for (size_t i=0; i<3; ++i){
-            val[i] -= accel[i] * crv * mval * ampAxis[i];
-        }
-        step += std::get<0>(it->second);
 
+		// The general idea behind this decay math:
+		// Take exp(step*decay) and subtract step*exp(decay) to shift the
+		// termination to 0 but leave the starting point at 1
+		// Then scale the whole thing down by (1-term)
+		// Finally, shift it up by term so that the curve starts at 1 and ends at term
+		// Then just multiply it by the sine wave
+
+		crv = sin(step * p2l) * ((1.0 - term) * (exp(step*dl) - step*edl) + term);
+
+        for (size_t i=0; i<3; ++i){
+            val[i] -= accel[i] * crv * mvel * ampAxis[i];
+        }
+
+        step += std::get<0>(it->second);
 		if (it == cache.begin()) break;
 		--it;
 	}

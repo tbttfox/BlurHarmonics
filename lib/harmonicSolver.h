@@ -19,7 +19,7 @@ void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, int inserted);
 double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey);
 
 Vec3 harmonicSolver(double time,
-        unsigned int waves, unsigned int length, double amp, double decay,
+        unsigned int waves, unsigned int length, double amp, double decay, double term,
         const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &accel,
 		bool ignoreInitialAccel);
 
