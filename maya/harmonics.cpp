@@ -80,7 +80,7 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aStorage -> aOutput");
 
 	// The number of waves each impulse causes
-	aWaves = nAttr.create("numWaves", "numWaves", MFnNumericData::kInt, 5);
+	aWaves = nAttr.create("numWaves", "numWaves", MFnNumericData::kDouble, 5.0);
 	nAttr.setMin(0);
 	stat = addAttribute(aWaves);
 	MCHECKERRORMSG(stat, "addAttribute: numWaves");
@@ -88,7 +88,7 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput");
 
 	// The length of the waves
-	aWaveLength = nAttr.create("waveLength", "waveLength", MFnNumericData::kInt, 5);
+	aWaveLength = nAttr.create("waveLength", "waveLength", MFnNumericData::kDouble, 5.0);
 	nAttr.setMin(0);
 	stat = addAttribute(aWaveLength);
 	MCHECKERRORMSG(stat, "addAttribute: waveLength");
@@ -342,8 +342,8 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		MCHECKERROR(status);
 
 		auto frame = timeH.asTime().value();
-		auto waves = wavesH.asInt();
-		auto length = waveLengthH.asInt();
+		auto waves = wavesH.asDouble();
+		auto length = waveLengthH.asDouble();
 		auto ampl = amplitudeH.asDouble();
 		auto decay = decayH.asDouble();
 		auto term = termH.asDouble();

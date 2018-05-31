@@ -1,0 +1,73 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<templates>
+
+    <template name='AEharmonics'>
+                <attribute name='numWaves' type='maya.long'>
+                        <label>Num Waves</label>
+                </attribute>
+
+                <attribute name='waveLength' type='maya.long'>
+                        <label>Wave Length</label>
+                </attribute>
+
+                <attribute name='amplitude' type='maya.double'>
+                        <label>Amplitude</label>
+                </attribute>
+
+                <attribute name='axisAmp0' type='maya.double'>
+                        <label>Axis Amp X</label>
+                </attribute>
+
+                <attribute name='axisAmp1' type='maya.double'>
+                        <label>Axis Amp Y</label>
+                </attribute>
+
+                <attribute name='axisAmp2' type='maya.double'>
+                        <label>Axis Amp Z</label>
+                </attribute>
+
+                <attribute name='decay' type='maya.double'>
+                        <label>Decay</label>
+                </attribute>
+
+                <attribute name='timeIn' type='maya.long'>
+                        <label>Time In</label>
+                </attribute>
+
+                <attribute name='ignoreFirstFrame' type='maya.bool'>
+                        <label>Ignore First Frame</label>
+                </attribute>
+
+                <attribute name='matchVelocity' type='maya.bool'>
+                        <label>Match Velocity</label>
+                </attribute>
+
+                <attribute name='step' type='maya.double'>
+                        <label>Step</label>
+                </attribute>
+
+                <attribute name='update' type='maya.bool'>
+                        <label>Update</label>
+                </attribute>
+    </template>
+
+    <view name="Anim" template="AEharmonics">
+                <group name='Static'>
+                       <property name='numWaves'/>
+                       <property name='waveLength'/>
+                       <property name='amplitude'/>
+                       <property name='axisAmp0'/>
+                       <property name='axisAmp1'/>
+                       <property name='axisAmp2'/>
+                       <property name='decay'/>
+                       <property name='timeIn'/>
+                       <property name='ignoreFirstFrame'/>
+                       <property name='matchVelocity'/>
+                </group>
+                <group name='Simulate'>
+                       <property name='step'/>
+                       <property name='update'/>
+                </group>
+    </view>
+
+</templates>
