@@ -10,8 +10,10 @@ Maya20*/
 **/build/
 **/pybuild/
 **/mayabuild/
+**/maxbuild/
 **/xsibuild/
 **/output/
+**/Useful/
 
 # VIM Swapfiles
 *.swp
