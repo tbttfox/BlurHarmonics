@@ -1,10 +1,10 @@
-#include "harmonicsController.h"
+#include "harmonicController.h"
 
-static HarmonicsControllerClassDesc HarmonicsControllerDesc;
-ClassDesc2* GetHarmonicsControllerDesc() { return &HarmonicsControllerDesc; }
+static HarmonicControllerClassDesc HarmonicControllerDesc;
+ClassDesc2* GetHarmonicControllerDesc() { return &HarmonicControllerDesc; }
 
-static ParamBlockDesc2 harmonicscontroller_param_blk (
-	harmonicscontroller_params, _T("params"),  0, &HarmonicsControllerDesc,
+static ParamBlockDesc2 harmoniccontroller_param_blk (
+	harmoniccontroller_params, _T("params"),  0, &HarmonicControllerDesc,
 	P_AUTO_CONSTRUCT | P_AUTO_UI, PBLOCK_REF,
 
 	//rollout
@@ -78,10 +78,244 @@ static ParamBlockDesc2 harmonicscontroller_param_blk (
 		p_ui,			TYPE_SINGLECHEKBOX,	IDC_NORMALIZE_CHECK,
 		end,
 
+	pb_update,			_T("update"),	TYPE_BOOL,	P_RESET_DEFAULT,	IDS_UPDATE,
+		p_default,		TRUE,
+		p_ui,			TYPE_SINGLECHEKBOX,	IDC_UPDATE_CHECK,
+		end,
+
 	pb_reference,  _T("reference"), 		TYPE_INODE,  0,					IDS_REFERENCE_PICKNODE,
 		p_ui, 			TYPE_PICKNODEBUTTON, IDC_REFERENCE_PICKNODE,
 		p_end,
 
 	p_end
 );
+
+BOOL HarmonicControlDlgProc::DlgProc(TimeValue t, IParamMap2 * map, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+		case WM_INITDIALOG: {
+            cont->hWnd = hWnd;
+            break;
+        }
+		case CC_SPINNER_CHANGE: {
+			cont->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+			break;
+		}
+		case WM_COMMAND: {
+            if (LOWORD(wParam) == IDC_OKBUTTON) {
+                cont->activeDialog = FALSE;
+                DestroyModelessParamMap2(cont->pDialogMap);
+            }
+			else {
+                cont->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+                GetCOREInterface()->RedrawViews(GetCOREInterface()->GetTime());
+            }
+            break;
+        }
+    }
+    return FALSE;
+}
+
+class RangeRestore: public RestoreObj {
+    public: HarmonicController * cont;
+    Interval ur,
+    rr;
+    RangeRestore(HarmonicController * c) {
+        cont = c;
+        ur = cont->range;
+    }
+    void Restore(int isUndo) {
+        rr = cont->range;
+        cont->range = ur;
+        cont->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+    }
+    void Redo() {
+        cont->range = rr;
+        cont->NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+    }
+    void EndHold() {
+        cont->ClearAFlag(A_HELD);
+    }
+    TSTR Description() {
+        return TSTR(_T("harmonic control range"));
+    }
+};
+
+// make the paramblock
+HarmonicController::HarmonicController() {
+    HarmonicControllerDesc.MakeAutoParamBlocks(this);
+    pDialogMap = NULL;
+    proc = NULL;
+    activeDialog = FALSE;
+    stopRef = FALSE;
+    rebuildCache = FALSE;
+}
+
+HarmonicController::~HarmonicController() {
+	if (activeDialog) DestroyModelessParamMap2(pDialogMap);
+    DeleteAllRefsFromMe();
+}
+
+void HarmonicController::HoldRange() {
+    if (theHold.Holding() && !TestAFlag(A_HELD)) {
+        SetAFlag(A_HELD);
+        theHold.Put(new RangeRestore(this));
+    }
+}
+
+void HarmonicController::EditTimeRange(Interval range, DWORD flags) {
+    if (!(flags & EDITRANGE_LINKTOKEYS)) {
+        HoldRange();
+        this->range = range;
+        NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+    }
+}
+
+void HarmonicController::MapKeys(TimeMap * map, DWORD flags) {
+    if (flags & TRACK_MAPRANGE) {
+        HoldRange();
+        TimeValue t0 = map->map(range.Start());
+        TimeValue t1 = map->map(range.End());
+        range.Set(t0, t1);
+        NotifyDependents(FOREVER, PART_ALL, REFMSG_CHANGE);
+    }
+}
+
+RefTargetHandle HarmonicController::Clone(RemapDir & remap) {
+    // make a new harmonic controller and give it our param values.
+    HarmonicController * cont = new HarmonicController;
+    cont->ReplaceReference(PBLOCK_REF, pblock->Clone(remap));
+    // Clone the strength controller
+    CloneControl(cont, remap);
+    BaseClone(this, cont, remap);
+    return cont;
+}
+
+void HarmonicController::Copy(Control * from) {
+    pblock->SetController(pb_driver, 0, from);;
+}
+
+void HarmonicController::SetValueLocalTime(TimeValue t, void * val, int commit, GetSetMethod method) {
+    BOOL update;
+    pblock->GetValue(pb_update, t, update, FOREVER);
+    if (!update){
+		// TODO: Get the point3 value from val, and save it to my custom cache
+		//float f = * ((float * ) val);
+		//pblock->SetValue(pb_driver, t, f);
+        //RebuildCache();
+	}
+}
+
+void HarmonicController::GetValueLocalTime(TimeValue t, void * val, Interval & valid, GetSetMethod method) {
+    BOOL update;
+    pblock->GetValue(pb_update, t, update, FOREVER);
+
+    if (update)
+		// when do GetValueLocalTime and SetValueLocalTime get called?
+		// that will inform when I need to actually set and use the harmonic library
+        //RebuildCache();
+
+    // This controller is always changing.
+    valid.SetInstant(t);
+
+	// TODO: Set the proper point3 value, not a float
+    float f;
+	pblock->GetValue(pb_cache, t, f, FOREVER);
+    else pblock->GetValue(pb_driver, t, f, FOREVER);
+    * ((float * ) val) = f;
+}
+
+void HarmonicController::Extrapolate(Interval range, TimeValue t, void * val, Interval & valid, int type) {
+    float val0, val1, val2, res;
+    switch (type) {
+    case ORT_LINEAR:
+        if (t < range.Start()) {
+            GetValueLocalTime(range.Start(), & val0, valid);
+            GetValueLocalTime(range.Start() + 1, & val1, valid);
+            res = LinearExtrapolate(range.Start(), t, val0, val1, val0);
+        }
+		else {
+            GetValueLocalTime(range.End() - 1, & val0, valid);
+            GetValueLocalTime(range.End(), & val1, valid);
+            res = LinearExtrapolate(range.End(), t, val0, val1, val1);
+        }
+        break;
+
+    case ORT_IDENTITY:
+        if (t < range.Start()) {
+            GetValueLocalTime(range.Start(), & val0, valid);
+            res = IdentityExtrapolate(range.Start(), t, val0);
+        }
+		else {
+            GetValueLocalTime(range.End(), & val0, valid);
+            res = IdentityExtrapolate(range.End(), t, val0);
+        }
+        break;
+
+    case ORT_RELATIVE_REPEAT:
+        GetValueLocalTime(range.Start(), & val0, valid);
+        GetValueLocalTime(range.End(), & val1, valid);
+        GetValueLocalTime(CycleTime(range, t), & val2, valid);
+        res = RepeatExtrapolate(range, t, val0, val1, val2);
+        break;
+    }
+    valid.Set(t, t); * ((float * ) val) = res;
+}
+
+// TODO: Can I get away with using the default implementation of this?
+RefResult HarmonicController::NotifyRefChanged(
+    Interval iv,
+    RefTargetHandle hTarg,
+    PartID & partID,
+    RefMessage msg) {
+    if (stopRef) return REF_STOP;
+
+    switch (msg) {
+		case REFMSG_CHANGE: {
+			if (hTarg == pblock) {
+				ParamID changing_param = pblock->LastNotifyParamID();
+				harmoniccontroller_param_blk.InvalidateUI(changing_param);
+				if (activeDialog) {
+					UpdateWindow(hWnd);
+				}
+			}
+			break;
+		}
+
+		case REFMSG_OBJECT_CACHE_DUMPED: {
+			return REF_STOP;
+			break;
+		}
+    }
+    return REF_SUCCEED;
+}
+
+// TODO: Save my custom cache data
+IOResult HarmonicController::Save(ISave * isave) {
+    return IO_OK;
+}
+
+// TODO: Load my custom cache data
+IOResult HarmonicController::Load(ILoad * iload) {
+    ULONG nb = 0;
+    IOResult res = IO_OK;
+    return IO_OK;
+}
+
+void HarmonicController::EditTrackParams(
+    TimeValue t,
+    ParamDimensionBase * dim,
+    TCHAR * pname,
+    HWND hParent,
+    IObjParam * ip,
+    DWORD flags) {
+
+    if (!activeDialog) {
+        activeDialog = TRUE;
+        HarmonicControlDlgProc * proc = new HarmonicControlDlgProc();
+        proc->SetThing(this);
+        pDialogMap = CreateModelessParamMap2(
+            harmoniccontroller_params, pblock, t, hInstance, MAKEINTRESOURCE(IDD_PANEL),
+            GetCOREInterface()->GetMAXHWnd(), proc);
+    }
+}
 
