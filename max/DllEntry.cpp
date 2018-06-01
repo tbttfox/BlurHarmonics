@@ -1,15 +1,3 @@
-/**********************************************************************
- *<
-	FILE: DllEntry.cpp
-
-	DESCRIPTION: Contains the Dll Entry stuff
-
-	CREATED BY: 
-
-	HISTORY: 
-
- *>	Copyright (c) 2000, All Rights Reserved.
- **********************************************************************/
 #include "harmonicController.h"
 
 extern ClassDesc2* GetHarmonicControllerDesc();
