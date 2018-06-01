@@ -43,6 +43,8 @@ elseif (${TARGET_DCC} STREQUAL "Max")
         "max/DllEntry.cpp"
     )
 
+    add_definitions(-DUNICODE)
+
     include_directories(${MAXSDK_INCLUDE_DIR} max lib)
     add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${RESOURCE_FILES})
 	set_target_properties( ${PROJECT_NAME} PROPERTIES SUFFIX ".dlu" )

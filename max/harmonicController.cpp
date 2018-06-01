@@ -44,13 +44,13 @@ static ParamBlockDesc2 harmoniccontroller_param_blk (
 		p_ui,			TYPE_SPINNER,		EDITTYPE_FLOAT,	IDC_AMPZ,	IDC_AMPZ_SPIN, 0.01f,
 		p_end,
 
-	pb_decay,		_M("decay"),			TYPE_FLOAT,	P_ANIMATABLE,	IDS_DECAY,
+	pb_decay,			_M("decay"),			TYPE_FLOAT,	P_ANIMATABLE,	IDS_DECAY,
 		p_default,		3.0f,
 		p_range,		0.0f,1000.0f,
 		p_ui,			TYPE_SPINNER,		EDITTYPE_FLOAT,	IDC_DECAY,	IDC_DECAY_SPIN, 0.01f,
 		p_end,
 
-	pb_termination,	_M("termination"),		TYPE_FLOAT,	P_ANIMATABLE,	IDS_TERMINATION,
+	pb_termination,		_M("termination"),		TYPE_FLOAT,	P_ANIMATABLE,	IDS_TERMINATION,
 		p_default,		3.0f,
 		p_range,		0.0f,1.0f,
 		p_ui,			TYPE_SPINNER,		EDITTYPE_FLOAT,	IDC_TERMINATION,	IDC_TERMINATION_SPIN, 0.01f,
@@ -83,7 +83,7 @@ static ParamBlockDesc2 harmoniccontroller_param_blk (
 		p_ui,			TYPE_SINGLECHEKBOX,	IDC_UPDATE_CHECK,
 		p_end,
 
-	pb_reference,  _M("reference"), 		TYPE_INODE,  0,					IDS_REFERENCE_PICKNODE,
+	pb_reference,		_M("reference"), TYPE_INODE,  0,	IDS_REFERENCE_PICKNODE,
 		p_ui, 			TYPE_PICKNODEBUTTON, IDC_REFERENCE_PICKNODE,
 		p_end,
 
@@ -262,9 +262,8 @@ void HarmonicController::Extrapolate(Interval range, TimeValue t, void * val, In
 
 // TODO: Can I get away with using the default implementation of this?
 
-RefResult NotifyRefChanged(const Interval& iv, RefTargetHandle hTarg,
+RefResult HarmonicController::NotifyRefChanged(const Interval& iv, RefTargetHandle hTarg,
 	PartID& partID, RefMessage msg, BOOL propagate) {
-    if (stopRef) return REF_STOP;
 
     switch (msg) {
 		case REFMSG_CHANGE: {
@@ -311,7 +310,7 @@ void HarmonicController::EditTrackParams(
         HarmonicControlDlgProc * proc = new HarmonicControlDlgProc();
         proc->SetThing(this);
         pDialogMap = CreateModelessParamMap2(
-            harmoniccontroller_params, pblock, t, hInstance, MAKEINTRESOURCE(IDD_PANEL),
+            (MapID)harmoniccontroller_params, pblock, t, hInstance, MAKEINTRESOURCE(IDD_PANEL),
             GetCOREInterface()->GetMAXHWnd(), proc);
     }
 }

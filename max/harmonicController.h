@@ -34,7 +34,7 @@ public:
     //From Animatable
     Class_ID ClassID() {return HARMONICCONTROLLER_CLASS_ID;}		
     SClass_ID SuperClassID() { return CTRL_FLOAT_CLASS_ID; }
-	void GetClassName(TSTR& s) { s = GetString(IDS_CLASS_NAME); }
+	void GetClassName(TSTR& s) { s = _T("HarmonicController"); }
 
     RefTargetHandle Clone( RemapDir &remap );
    	RefResult NotifyRefChanged(const Interval& changeInt, RefTargetHandle hTarget, PartID& partID, RefMessage message, BOOL propagate);

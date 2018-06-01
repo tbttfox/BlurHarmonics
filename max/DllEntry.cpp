@@ -10,28 +10,19 @@
 
  *>	Copyright (c) 2000, All Rights Reserved.
  **********************************************************************/
-#include "FloatSpringController.h"
+#include "harmonicController.h"
 
-extern ClassDesc2* GetFloatSpringControllerDesc();
+extern ClassDesc2* GetHarmonicControllerDesc();
 
 HINSTANCE hInstance;
 int controlsInit = FALSE;
 
-// This function is called by Windows when the DLL is loaded.  This 
-// function may also be called many times during time critical operations
-// like rendering.  Therefore developers need to be careful what they
-// do inside this function.  In the code below, note how after the DLL is
-// loaded the first time only a few statements are executed.
-
-BOOL WINAPI DllMain(HINSTANCE hinstDLL,ULONG fdwReason,LPVOID lpvReserved) {
-	hInstance = hinstDLL;				// Hang on to this DLL's instance handle.
-
-	if (!controlsInit) {
-		controlsInit = TRUE;
-		InitCustomControls(hInstance);	// Initialize MAX's custom controls
-		InitCommonControls();			// Initialize Win95 controls
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, ULONG fdwReason, LPVOID lpvReserved) {
+	if (fdwReason == DLL_PROCESS_ATTACH) {
+		MaxSDK::Util::UseLanguagePackLocale();
+		hInstance = hinstDLL; // Hang on to this DLL's instance handle.
+		DisableThreadLibraryCalls(hInstance);
 	}
-			
 	return (TRUE);
 }
 
@@ -47,10 +38,9 @@ __declspec( dllexport ) int LibNumberClasses() {
 	return 1;
 }
 
-// This function returns the number of plug-in classes this DLL
 __declspec( dllexport ) ClassDesc* LibClassDesc(int i) {
 	switch(i) {
-		case 0: return GetFloatSpringControllerDesc();
+		case 0: return GetHarmonicControllerDesc();
 		default: return 0;
 	}
 }
