@@ -1,7 +1,7 @@
 #ifndef __HARMONICCONTROLLER__H
 #define __HARMONICCONTROLLER__H
 
-#include "Max.h"
+#include "max.h"
 #include "resource.h"
 #include "istdplug.h"
 #include "iparamb2.h"
@@ -16,7 +16,8 @@ extern HINSTANCE hInstance;
 
 enum { harmoniccontroller_params };
 
-enum { pb_mass, pb_strength, pb_dampening, pb_samples, pb_driver, pb_cache, pb_enable, pb_manualsolve };
+enum { pb_numWaves, pb_waveLength, pb_amplitude, pb_ampX, pb_ampY, pb_ampZ, pb_decay,
+	pb_termination, pb_step, pb_firstFrame, pb_ignoreFirst, pb_normalize, pb_update, pb_reference };
 
 class HarmonicControlDlgProc;
 
@@ -33,14 +34,13 @@ public:
     //From Animatable
     Class_ID ClassID() {return HARMONICCONTROLLER_CLASS_ID;}		
     SClass_ID SuperClassID() { return CTRL_FLOAT_CLASS_ID; }
-    void GetClassName(TSTR& s) {s = GetString(IDS_CLASS_NAME);}
+	void GetClassName(TSTR& s) { s = GetString(IDS_CLASS_NAME); }
 
     RefTargetHandle Clone( RemapDir &remap );
-    RefResult NotifyRefChanged(Interval changeInt, RefTargetHandle hTarget, 
-        PartID& partID,  RefMessage message);
+   	RefResult NotifyRefChanged(const Interval& changeInt, RefTargetHandle hTarget, PartID& partID, RefMessage message, BOOL propagate);
 
-    int NumSubs() { return 1; }
-    TSTR SubAnimName(int i) { return GetString(IDS_PARAMS); }				
+    int NumSubs() { return 0; }
+    MSTR SubAnimName(int i) { return NULL; }				
     Animatable* SubAnim(int i) { return pblock; }
 
     // TODO: Maintain the number or references here
@@ -111,14 +111,14 @@ public:
 class HarmonicControllerClassDesc:public ClassDesc2 {
 public:
 	int 			IsPublic() { return TRUE; }
-	void *			Create(BOOL loading = FALSE) { return new HarmonicController(); }
-	const TCHAR *	ClassName() { return GetString(IDS_CLASS_NAME); }
+	void *	Create(BOOL loading = FALSE) { return new HarmonicController; }
+	const MCHAR*	ClassName() { return _M(""); }
 	SClass_ID		SuperClassID() { return CTRL_FLOAT_CLASS_ID; }
 	Class_ID		ClassID() { return HARMONICCONTROLLER_CLASS_ID; }
-	const TCHAR* 	Category() { return GetString(IDS_CATEGORY); }
+	const MCHAR* 	Category() { return _M(""); }
 
 	// returns fixed parsable name (scripter-visible name)
-	const TCHAR*	InternalName() { return _T("HarmonicController"); }
+	const MCHAR*	InternalName() { return _M("HarmonicController"); }
 	// returns owning module handle
 	HINSTANCE		HInstance() { return hInstance; }
 };
@@ -126,7 +126,7 @@ public:
 class HarmonicControlDlgProc: public ParamMap2UserDlgProc {
 public:
 	HarmonicController *cont;
-	BOOL DlgProc(TimeValue t, IParamMap2 *map, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	INT_PTR DlgProc(TimeValue t, IParamMap2 *map, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	void DeleteThis()  {delete this;}
 	void SetThing(ReferenceTarget *m) { cont = (HarmonicController *)m;}
 };

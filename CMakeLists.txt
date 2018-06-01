@@ -40,6 +40,7 @@ elseif (${TARGET_DCC} STREQUAL "Max")
     set(SOURCE_FILES
         "lib/harmonicSolver.cpp"
         "max/harmonicController.cpp"
+        "max/DllEntry.cpp"
     )
 
     include_directories(${MAXSDK_INCLUDE_DIR} max lib)

@@ -52,14 +52,15 @@ BEGIN
     CONTROL         "",IDC_TERMINATION,"CustEdit",WS_TABSTOP,58,75,35,10
     CONTROL         "",IDC_TERMINATION_SPIN,"SpinnerControl",0x0,95,75,7,10
     RTEXT           "End Value:",IDC_STATIC,7,75,47,8
-    CONTROL         "",IDC_STEP,"CustEdit",WS_TABSTOP,58,138,35,10
-    CONTROL         "",IDC_STEP_SPIN,"SpinnerControl",0x0,95,138,7,10
-    RTEXT           "Step:",IDC_STATIC,7,138,47,8
-    CONTROL         "Update Cache",IDC_UPDATE_CHECK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,152,95,13
+    CONTROL         "",IDC_STEP,"CustEdit",WS_TABSTOP,58,143,35,10
+    CONTROL         "",IDC_STEP_SPIN,"SpinnerControl",0x0,95,143,7,10
+    RTEXT           "Step:",IDC_STATIC,7,143,47,8
+    CONTROL         "Update Cache",IDC_UPDATE_CHECK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,157,95,13
     CONTROL         "",IDC_FIRSTFRAME,"CustEdit",WS_TABSTOP,58,87,35,10
     CONTROL         "",IDC_FIRSTFRAME_SPIN,"SpinnerControl",0x0,95,87,7,10
     RTEXT           "First Frame:",IDC_STATIC,7,87,47,8
-    CONTROL         "Normalize Motion",IDC_NORMALIZE_CHECK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,116,95,13
+    CONTROL         "Pick Reference",IDC_REFERENCE_PICKNODE,"CustButton",WS_TABSTOP,7,121,81,14
+    PUSHBUTTON      "X",IDC_CLEARREF_BUTTON,89,121,13,14
 END
 
 
@@ -169,15 +170,28 @@ BEGIN
     IDS_CATEGORY            "HarmonicController"
     IDS_CLASS_NAME          "Harmonic"
     IDS_PARAMS              "Parameters"
-    IDS_SPIN                "Spin"
-    IDS_MASS                "Mass"
-    IDS_DAMPENING           "Dampening"
-    IDS_STRENGTH            "Strength"
-    IDS_DRIVER              "Driver"
-    IDS_CACHE               "Cache"
-    IDS_SAMPLES             "Samples"
-    IDS_ENABLE              "Enable Spring Motion"
-    IDS_MANUAL              "Manual Solve"
+    IDS_NUMWAVES            "Num Waves"
+    IDS_WAVELENGTH          "Wavelength"
+    IDS_AMPLITUDE           "Amplitude"
+    IDS_AMPX                "X Amplitude"
+    IDS_AMPY                "Y Amplitude"
+    IDS_AMPZ                "Z Amplitude"
+    IDS_DECAY               "Decay"
+    IDS_TERMINATION         "Termination"
+    IDS_STEP                "Step"
+    IDS_FIRSTFRAME          "First Frame"
+    IDS_IGNOREFIRST         "Ignore First"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_NORMALIZE           "Normalize"
+    IDS_REFERENCE_PICKNODE  "Pick Reference"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_UPDATE              "Update"
 END
 
 #endif    // English (United States) resources
