@@ -1,4 +1,5 @@
-#include "harmonicController.h"
+#include "harmonicController.h";
+#include "harmonicSolver.h"
 
 static HarmonicControllerClassDesc HarmonicControllerDesc;
 ClassDesc2* GetHarmonicControllerDesc() { return &HarmonicControllerDesc; }
@@ -194,73 +195,59 @@ void HarmonicController::Copy(Control * from) {
     //pblock->SetController(pb_driver, 0, from);;
 }
 
-void HarmonicController::SetValueLocalTime(TimeValue t, void * val, int commit, GetSetMethod method) {
-    BOOL update;
-    pblock->GetValue(pb_update, t, update, FOREVER);
-    if (!update){
-		// TODO: Get the point3 value from val, and save it to my custom cache
-		//float f = * ((float * ) val);
-		//pblock->SetValue(pb_driver, t, f);
-        //RebuildCache();
-	}
-}
+void HarmonicController::SetValueLocalTime(TimeValue t, void * val, int commit, GetSetMethod method) {}
 
 void HarmonicController::GetValueLocalTime(TimeValue t, void * val, Interval & valid, GetSetMethod method) {
-    BOOL update;
-    pblock->GetValue(pb_update, t, update, FOREVER);
+	// TODO: Find where the GetSetMethod comes from.  This controller only works if
+	// we know where we're coming from (meaning method *MUST* be CTRL_RELATIVE)
 
-    if (update)
-		// when do GetValueLocalTime and SetValueLocalTime get called?
-		// that will inform when I need to actually set and use the harmonic library
-        //RebuildCache();
+	float numWaves, waveLength, amplitude, ampX, step, ampY, ampZ, decay, termination;
+	int firstFrame;
+	BOOL update, ignoreFirst, normalize, update;
+
+	pblock->GetValue(pb_update, t, update, FOREVER);
+	pblock->GetValue(pb_numWaves, t, update, FOREVER);
+	pblock->GetValue(pb_waveLength, t, update, FOREVER);
+	pblock->GetValue(pb_amplitude, t, update, FOREVER);
+	pblock->GetValue(pb_ampX, t, update, FOREVER);
+	pblock->GetValue(pb_ampY, t, update, FOREVER);
+	pblock->GetValue(pb_ampZ, t, update, FOREVER);
+	pblock->GetValue(pb_decay, t, update, FOREVER);
+	pblock->GetValue(pb_termination, t, update, FOREVER);
+	pblock->GetValue(pb_step, t, update, FOREVER);
+	pblock->GetValue(pb_firstFrame, t, update, FOREVER);
+	pblock->GetValue(pb_ignoreFirst, t, update, FOREVER);
+	pblock->GetValue(pb_normalize, t, update, FOREVER);
+	pblock->GetValue(pb_update, t, update, FOREVER);
+	
+	double frameTime = (double)t * ((double)GetFrameRate() / (double)TIME_TICKSPERSEC);
+	if (update) {
+		// Insert a new acceleration key at inserted, and update any adjacent accelerations
+		HarmCacheMap cache, accel;
+		updateAccel(cache, accel, frameTime);
+	}
+	// TODO: Set the proper point3 value, not a float
+	Point3 f;
+	
+	// TODO: Get the current offset from the solver for the current time
+	double waves, length, ampl, decay, term;
+	Vec3 ampAxis, out;
+	bool matchVelocity, ignoreInitialAccel;
+	HarmCacheMap cache;
+	out = harmonicSolver(frameTime, waves, length, ampl, decay,
+		term, ampAxis, matchVelocity, cache, ignoreInitialAccel);
 
     // This controller is always changing.
     valid.SetInstant(t);
-
-	// TODO: Set the proper point3 value, not a float
-    float f;
 	//pblock->GetValue(pb_cache, t, f, FOREVER);
-    * ((float * ) val) = f;
+    * ((Point3 * ) val) = f;
 }
 
 void HarmonicController::Extrapolate(Interval range, TimeValue t, void * val, Interval & valid, int type) {
-    float val0, val1, val2, res;
-    switch (type) {
-    case ORT_LINEAR:
-        if (t < range.Start()) {
-            GetValueLocalTime(range.Start(), & val0, valid);
-            GetValueLocalTime(range.Start() + 1, & val1, valid);
-            res = LinearExtrapolate(range.Start(), t, val0, val1, val0);
-        }
-		else {
-            GetValueLocalTime(range.End() - 1, & val0, valid);
-            GetValueLocalTime(range.End(), & val1, valid);
-            res = LinearExtrapolate(range.End(), t, val0, val1, val1);
-        }
-        break;
-
-    case ORT_IDENTITY:
-        if (t < range.Start()) {
-            GetValueLocalTime(range.Start(), & val0, valid);
-            res = IdentityExtrapolate(range.Start(), t, val0);
-        }
-		else {
-            GetValueLocalTime(range.End(), & val0, valid);
-            res = IdentityExtrapolate(range.End(), t, val0);
-        }
-        break;
-
-    case ORT_RELATIVE_REPEAT:
-        GetValueLocalTime(range.Start(), & val0, valid);
-        GetValueLocalTime(range.End(), & val1, valid);
-        GetValueLocalTime(CycleTime(range, t), & val2, valid);
-        res = RepeatExtrapolate(range, t, val0, val1, val2);
-        break;
-    }
-    valid.Set(t, t); * ((float * ) val) = res;
+	// Out of range is handled by the solver
+	// so just pass this back to the getter
+	GetValueLocalTime(t, val, valid);
 }
-
-// TODO: Can I get away with using the default implementation of this?
 
 RefResult HarmonicController::NotifyRefChanged(const Interval& iv, RefTargetHandle hTarg,
 	PartID& partID, RefMessage msg, BOOL propagate) {

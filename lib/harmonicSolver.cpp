@@ -74,7 +74,7 @@ void updateFirstFrame(const HarmCacheCIt &curIt, const HarmCacheCIt &nxtIt, Harm
 }
 
 // Insert a new acceleration key at inserted, and update any adjacent accelerations
-void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, int inserted){
+void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, double inserted){
     // Update the acceleration values near where we just
     // inserted a new value
 	auto curIt = cache.find(inserted);
