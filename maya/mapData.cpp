@@ -4,7 +4,7 @@
 
 //typedef HarmCacheMap std::unordered_map<int, HarmCacheData>;
 // frame: [step, [xval,  yval,  zval]]
-const MTypeId HarmCacheProxy::id(0x001226F7);
+const MTypeId HarmCacheProxy::id(0x001226F9);
 const MString HarmCacheProxy::typeName("harmonicMapData");
 
 void* HarmCacheProxy::creator(){
