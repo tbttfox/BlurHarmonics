@@ -136,11 +136,10 @@ double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey
 }
 
 // Solve the simple harmonic for the given time value
-Vec3 harmonicSolver(double time,
-        double waves, double length, double amp, double decay,
-		double term,
+Vec3 harmonicSolver(
+		double time, double waves, double length, double amp, double decay, double term,
         const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache,
-        bool ignoreInitialAccel
+		const ParAccel &parAccel, bool ignoreInitialAccel
         ){
 
     Vec3 val = {0.0, 0.0, 0.0};
@@ -182,3 +181,5 @@ Vec3 harmonicSolver(double time,
 
     return val;
 }
+
+
