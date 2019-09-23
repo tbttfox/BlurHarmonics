@@ -90,7 +90,7 @@ def handleEdge(cache, idx, tKey):
 	return (pStep * (1.0 - perc) + nStep * perc) * perc
 
 def harmonicSolver(cache, time, waves, length, decay, term, amp, axisAmp,
-				   matchVelocity=True, ignoreInitialAccel=True):
+				   parCache, matchVelocity=True, ignoreInitialAccel=True):
 	''' Solve a spring at a given time based on cached acceleration
 
 	Parameters
@@ -133,13 +133,18 @@ def harmonicSolver(cache, time, waves, length, decay, term, amp, axisAmp,
 	edl = ti * exp(-decay) / wl
 	dl = -decay / wl
 
-
-	# There's just no good way to make this readable
+	# There's just no good way to make most of this readable
+	# Use the 
 	while step < wl:
 		if ignoreInitialAccel and idx == 0:
 			break
 		it = cache.peekitem(idx)
-		accel = it[1][1]
+		frm = it[0]
+
+		if parCache is None:
+			accel = it[1][1]
+		else:
+			accel = parCache.get(frm, (0, 0))[1]
 
 		# The general idea behind this decay math:
 		# Take `exp(step*decay)` and subtract `step*exp(decay)` to shift the
@@ -149,23 +154,24 @@ def harmonicSolver(cache, time, waves, length, decay, term, amp, axisAmp,
 		# Then just multiply it by the sine wave
 
 		txl = step * p2l
-		edxl = ti * exp(step*dl)
-		sedl = step * edl
+		edxl = ti * exp(step * dl)
+		stxl = sin(txl)
+		ctxl = cos(txl)
 
 		# Position Curve
-		posC = sin(txl) * (edxl - sedl + t)
+		posC = stxl * (edxl - (step * edl) + t)
 		val -= accel * mvel * axisAmp * posC
 
 		# Velocity Curve
-		velC = (edxl*dl - edl) * sin(txl) + (t + (edxl - sedl)) * cos(txl) * p2l
+		velC = (edxl * dl - edl) * stxl + (t + (edxl - (step * edl))) * ctxl * p2l
 		vel -= accel * mvel * axisAmp * velC
 
 		# Acceleration curve
-		aa = edxl*sin(txl)*dl**2
-		bb = (edxl*dl - edl)*cos(txl)*2*p2l
-		cc = (t + (edxl - sedl))*sin(txl)*p2l**2
+		aa = edxl * stxl * dl**2
+		bb = (edxl * dl - edl) * ctxl * 2 * p2l
+		cc = (t + (edxl - (step * edl))) * stxl * p2l**2
 		accC = aa + bb + cc
-		acc -= accel * mvel * axisAmp * accC
+		acc += accel * mvel * axisAmp * accC
 
 		step += it[1][0]
 		if idx == 0: break
@@ -174,11 +180,11 @@ def harmonicSolver(cache, time, waves, length, decay, term, amp, axisAmp,
 	return val, vel, acc
 
 
-def plotTest(anim, stepVal, num=10, amp=1.0, length=20, decay=5.0, term=0.0,
-			 matchVelocity=True, ignoreInitialAccel=True):
+def plotTest(anim, stepVal, num=3, amp=1.0, length=20, decay=1.0, term=0.0,
+			 layers=2, matchVelocity=True, ignoreInitialAccel=True):
 	# Add extra frames so that the wave will fully decay
 	extra = int((num + .5) * length)
-	anim += [anim[-1]] * extra
+	anim += [anim[-1]] * 300
 
 	# Allows for anim and stepVal to have different lengths
 	stepVal += [stepVal[-1]] * len(anim)
@@ -191,38 +197,44 @@ def plotTest(anim, stepVal, num=10, amp=1.0, length=20, decay=5.0, term=0.0,
 	cache = SortedDict([(t, (s, v)) for t, s, v in zip(trange, stepVal, anim)])
 	accel = builAlldAccel(cache)
 
-	vals, vels, accs = [], [], []
-	for f in trange:
-		val, vel, acc = harmonicSolver(
-			accel, f, num, length, decay, term, amp, 1.0,
-			matchVelocity=matchVelocity, ignoreInitialAccel=ignoreInitialAccel)
+	valsD, velsD, accsD = {}, {}, {}
+	parAccel = None
+	for layer in range(layers):
+		vals, vels, accs = [], [], []
 
-		vals.append(val)
-		vels.append(vel)
-		accs.append(acc)
-	return vals, vels, accs, accel, trange
+		nxtPar = SortedDict()
+		for f in trange:
+			val, vel, acc = harmonicSolver(
+				accel, f, num, length, decay, term, amp, 1.0, parAccel,
+				matchVelocity=matchVelocity, ignoreInitialAccel=ignoreInitialAccel)
+			vals.append(val)
+			vels.append(vel)
+			accs.append(acc)
+			nxtPar[f] = (1.0, acc)
+		valsD[layer] = np.array(vals)
+		velsD[layer] = np.array(vels)
+		accsD[layer] = np.array(accs)
+		parAccel = nxtPar
 
-
-
+	return valsD, velsD, accsD, accel, trange, anim
 
 
 def test():
 	anim = range(10)
 	stepVal = [1.0] * len(anim)
-	vals, vels, accs, accelCache, trange = plotTest(anim, stepVal)
+	layers = 3
+	vals, vels, accs, accelCache, trange, anim = plotTest(anim, stepVal, layers=layers)
+
 
 	import matplotlib.pyplot as plt
-
-	accel = [0.0, 0.0] + [x[1] for x in accelCache.values()]
-	saccs = [-j-i for i,j in zip(accel, accs)]
-
 	end = 300
+	anim = np.array(anim, dtype=float)[:end]
 
-	#plt.plot(trange[:end], anim[:end], 'b--')
-	plt.plot(trange[:end], saccs[:end], 'g')
-	plt.plot(trange[:end], vals[:end], 'r')
-	plt.plot(trange[:end], vels[:end], 'y')
-
+	colors = 'rgbcmy'
+	plt.plot(trange[:end], anim, 'k')
+	for r, c in zip(range(layers), colors):
+		anim += vals[r][:end]
+		plt.plot(trange[:end], anim, c)
 	plt.show()
 
 
