@@ -24,12 +24,12 @@ def test(anim, num=10, amp=1.0, length=20, decay=5.0, matchVelocity=True):
 	extra = int((num + .5) * length)
 	anim += [anim[-1]] * extra
 
-	stepVal = [1.0] * len(anim)
-	stepVal = [1.0] * 60 + [3.5] * 60 + [1.0]
+	steps = [1.0] * len(anim)
+	steps = [1.0] * 60 + [3.5] * 60 + [1.0]
 
 
-	stepVal += [stepVal[-1]] * len(anim)
-	stepVal = stepVal[:len(anim)]
+	steps += [steps[-1]] * len(anim)
+	steps = steps[:len(anim)]
 
 	# Build the response curve
 	trange = range(len(anim))
@@ -47,7 +47,7 @@ def test(anim, num=10, amp=1.0, length=20, decay=5.0, matchVelocity=True):
 		s = 0 # total steps taken
 		for b in range(crvLen):
 			val -= accel[f-b] * evalCrv(num, length, decay, s) * mvel
-			s += stepVal[f-b]
+			s += steps[f-b]
 		out.append(val)
 
 	plt.plot(trange, anim, 'b--')

@@ -1,5 +1,7 @@
+from __future__ import division
+import numpy as np
 from sortedcontainers import SortedDict
-from math import exp, sin, pi
+from math import exp, sin, cos, pi
 TAU = 2 * pi
 
 def interp(low, lowKey, high, highKey, tVal):
@@ -116,20 +118,24 @@ def harmonicSolver(cache, time, waves, length, decay, term, amp, axisAmp,
 		Whether to ignore the instantaneous acceleration that happens at the first
 		frame of animation. Defaults True
 	'''
-	val = 0.0
+	val, vel, acc = 0.0, 0.0, 0.0
 	idx = cache.bisect_right(time)
 
 	if idx == 0:
-		return val # Only happens if time is the first key
+		return val, vel, acc # Only happens if time is the first key
 	idx -= 1
+	ti = 1.0 - term
+	t = term
 	step = handleEdge(cache, idx, time)
 	mvel = amp * length / TAU if matchVelocity else amp
-	crvLen = waves * length
+	wl = waves * length
 	p2l = TAU / length
-	edl = exp(-decay) / crvLen
-	dl = -decay / crvLen
+	edl = ti * exp(-decay) / wl
+	dl = -decay / wl
 
-	while step < crvLen:
+
+	# There's just no good way to make this readable
+	while step < wl:
 		if ignoreInitialAccel and idx == 0:
 			break
 		it = cache.peekitem(idx)
@@ -142,13 +148,90 @@ def harmonicSolver(cache, time, waves, length, decay, term, amp, axisAmp,
 		# Finally, shift it up by `term` so that the curve starts at `1` and ends at `term`
 		# Then just multiply it by the sine wave
 
-		crv = sin(step * p2l) * ((1.0 - term) * (exp(step*dl) - step*edl) + term)
-		val -= accel * crv * mvel * axisAmp
+		txl = step * p2l
+		edxl = ti * exp(step*dl)
+		sedl = step * edl
+
+		# Position Curve
+		posC = sin(txl) * (edxl - sedl + t)
+		val -= accel * mvel * axisAmp * posC
+
+		# Velocity Curve
+		velC = (edxl*dl - edl) * sin(txl) + (t + (edxl - sedl)) * cos(txl) * p2l
+		vel -= accel * mvel * axisAmp * velC
+
+		# Acceleration curve
+		aa = edxl*sin(txl)*dl**2
+		bb = (edxl*dl - edl)*cos(txl)*2*p2l
+		cc = (t + (edxl - sedl))*sin(txl)*p2l**2
+		accC = aa + bb + cc
+		acc -= accel * mvel * axisAmp * accC
 
 		step += it[1][0]
 		if idx == 0: break
 		idx -= 1
 
-	return val
+	return val, vel, acc
+
+
+def plotTest(anim, stepVal, num=10, amp=1.0, length=20, decay=5.0, term=0.0,
+			 matchVelocity=True, ignoreInitialAccel=True):
+	# Add extra frames so that the wave will fully decay
+	extra = int((num + .5) * length)
+	anim += [anim[-1]] * extra
+
+	# Allows for anim and stepVal to have different lengths
+	stepVal += [stepVal[-1]] * len(anim)
+	stepVal = stepVal[:len(anim)]
+
+	# Get the frame numbers for everything
+	trange = range(len(anim))
+
+	# Parse the position cache into an acceleration cache
+	cache = SortedDict([(t, (s, v)) for t, s, v in zip(trange, stepVal, anim)])
+	accel = builAlldAccel(cache)
+
+	vals, vels, accs = [], [], []
+	for f in trange:
+		val, vel, acc = harmonicSolver(
+			accel, f, num, length, decay, term, amp, 1.0,
+			matchVelocity=matchVelocity, ignoreInitialAccel=ignoreInitialAccel)
+
+		vals.append(val)
+		vels.append(vel)
+		accs.append(acc)
+	return vals, vels, accs, accel, trange
+
+
+
+
+
+def test():
+	anim = range(10)
+	stepVal = [1.0] * len(anim)
+	vals, vels, accs, accelCache, trange = plotTest(anim, stepVal)
+
+	import matplotlib.pyplot as plt
+
+	accel = [0.0, 0.0] + [x[1] for x in accelCache.values()]
+	saccs = [-j-i for i,j in zip(accel, accs)]
+
+	end = 300
+
+	#plt.plot(trange[:end], anim[:end], 'b--')
+	plt.plot(trange[:end], saccs[:end], 'g')
+	plt.plot(trange[:end], vals[:end], 'r')
+	plt.plot(trange[:end], vels[:end], 'y')
+
+	plt.show()
+
+
+
+
+
+
+
+if __name__ == "__main__":
+	test()
 
 
