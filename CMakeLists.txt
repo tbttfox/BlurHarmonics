@@ -12,8 +12,8 @@ set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT $
 set(SOURCE_FILES
     "lib/harmonicSolver.cpp"
     "lib/harmonicSolver.h"
-    "maya/harmonics.cpp"
-    "maya/harmonics.h"
+    "maya/harmonicsNode.cpp"
+    "maya/harmonicsNode.h"
     "maya/mapData.cpp"
     "maya/mapData.h"
     "maya/pluginMain.cpp"

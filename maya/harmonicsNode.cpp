@@ -1,4 +1,4 @@
-#include "harmonics.h"
+#include "harmonicsNode.h"
 #include <maya/MPlug.h>
 #include <maya/MDataBlock.h>
 #include <maya/MDataHandle.h>
