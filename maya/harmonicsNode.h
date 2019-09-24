@@ -26,8 +26,8 @@ public:
 public:
 	static MObject aOutput; // vector
 
-	static MObject aReference; // Matrix
-	static MObject aParent; // Matrix
+	static MObject aWorldRefInverse; // Matrix
+	static MObject aParentInverse; // Matrix
 	static MObject aInput; // Matrix
 
 	static MObject aPositionCache; // harmonicMap
