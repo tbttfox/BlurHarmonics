@@ -30,8 +30,9 @@ public:
 	static MObject aParent; // Matrix
 	static MObject aInput; // Matrix
 
-	static MObject aStorage; // harmonicMap
-	static MObject aAccel; // harmonicMap
+	static MObject aPositionCache; // harmonicMap
+	static MObject aAccelCache; // harmonicMap
+	static MObject aChainCache; // harmonicMap
 	static MObject aUpdate; // bool
 	static MObject aWaves; // int
 	static MObject aWaveLength; // int

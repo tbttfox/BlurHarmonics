@@ -1,5 +1,7 @@
 #include "harmonicSolver.h"
 #include <math.h>
+#include <cmath>
+
 
 # define TAU 6.28318530717958647692
 
@@ -77,6 +79,8 @@ void updateFirstFrame(const HarmCacheCIt &curIt, const HarmCacheCIt &nxtIt, Harm
 void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, double inserted){
     // Update the acceleration values near where we just
     // inserted a new value
+
+	inserted = round(inserted);
 	auto curIt = cache.find(inserted);
 	if (curIt == cache.end()) return;
 
@@ -139,7 +143,7 @@ double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey
 Vec3 harmonicSolver(
 		double time, double waves, double length, double amp, double decay, double term,
         const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache,
-		const ParAccel &parAccel, bool ignoreInitialAccel
+		bool ignoreInitialAccel
         ){
 
     Vec3 val = {0.0, 0.0, 0.0};

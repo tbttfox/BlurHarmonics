@@ -28,8 +28,9 @@ MObject harmonics::aReference; // Matrix
 MObject harmonics::aParent; // Matrix
 MObject harmonics::aInput; // Matrix
 
-MObject harmonics::aStorage; // harmonicMap
-MObject harmonics::aAccel; // harmonicMap
+MObject harmonics::aPositionCache; // harmonicMap
+MObject harmonics::aAccelCache; // harmonicMap
+MObject harmonics::aChainCache; // harmonicMap
 MObject harmonics::aUpdate; // bool
 MObject harmonics::aWaves; // int
 MObject harmonics::aWaveLength; // int
@@ -62,22 +63,36 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "addAttribute: output");
 
 	// The custom storage data for this harmonic
-	aAccel = tAttr.create("accelStorage", "accelStorage", HarmCacheProxy::id, MObject::kNullObj, &stat);
-	MCHECKERRORMSG(stat, "createAttribute: accelStorage");
+	aAccelCache = tAttr.create("accelCache", "accelCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
+	MCHECKERRORMSG(stat, "createAttribute: accelCache");
 	tAttr.setHidden(true);
-	stat = addAttribute(aAccel);
-	MCHECKERRORMSG(stat, "addAttribute: accelStorage");
-	stat = attributeAffects(aAccel, aOutput);
+	stat = addAttribute(aAccelCache);
+	MCHECKERRORMSG(stat, "addAttribute: accelCache");
+	stat = attributeAffects(aAccelCache, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAccel -> aOutput");
+	stat = attributeAffects(aAccelCache, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aAccelCache -> aChainCache");
 
 	// The custom storage data for this harmonic
-	aStorage = tAttr.create("harmStorage", "harmStorage", HarmCacheProxy::id, MObject::kNullObj, &stat);
-	MCHECKERRORMSG(stat, "createAttribute: harmStorage");
+	aPositionCache = tAttr.create("positionCache", "positionCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
+	MCHECKERRORMSG(stat, "createAttribute: positionCache");
 	tAttr.setHidden(true);
-	stat = addAttribute(aStorage);
-	MCHECKERRORMSG(stat, "addAttribute: harmStorage");
-	stat = attributeAffects(aStorage, aOutput);
+	stat = addAttribute(aPositionCache);
+	MCHECKERRORMSG(stat, "addAttribute: positionCache");
+	stat = attributeAffects(aPositionCache, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
+	stat = attributeAffects(aPositionCache, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aStorage -> aOutput");
+	stat = attributeAffects(aPositionCache, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aChainCache");
+
+
+	// The custom storage data for this harmonic
+	aChainCache = tAttr.create("chainCache", "chainCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
+	MCHECKERRORMSG(stat, "createAttribute: chainCache");
+	tAttr.setHidden(true);
+	stat = addAttribute(aChainCache);
+	MCHECKERRORMSG(stat, "addAttribute: chainCache");
 
 	// The number of waves each impulse causes
 	aWaves = nAttr.create("numWaves", "numWaves", MFnNumericData::kDouble, 5.0);
@@ -86,6 +101,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: numWaves");
 	stat = attributeAffects(aWaves, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput");
+	stat = attributeAffects(aWaves, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aChainCache");
 
 	// The length of the waves
 	aWaveLength = nAttr.create("waveLength", "waveLength", MFnNumericData::kDouble, 5.0);
@@ -94,6 +111,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: waveLength");
 	stat = attributeAffects(aWaveLength, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput");
+	stat = attributeAffects(aWaveLength, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaveLength -> aChainCache");
 
 	// An overall multiplier on the wave amplitude
 	aAmplitude = nAttr.create("amplitude", "amplitude", MFnNumericData::kDouble, 1.0);
@@ -102,6 +121,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: amplitude");
 	stat = attributeAffects(aAmplitude, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutput");
+	stat = attributeAffects(aAmplitude, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aChainCache");
 
 	// The per-axis (relative to the reference) amplitude multipliers
 	aAxisAmp = nAttr.create("axisAmp", "axisAmp", MFnNumericData::k3Double, 1.0);
@@ -110,6 +131,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: axisAmp");
 	stat = attributeAffects(aAxisAmp, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput");
+	stat = attributeAffects(aAxisAmp, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aChainCache");
 
     // The decay of the waves over time
     aDecay = nAttr.create("decay", "decay", MFnNumericData::kDouble, 3.0);
@@ -119,6 +142,8 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "addAttribute: decay");
 	stat = attributeAffects(aDecay, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutput");
+	stat = attributeAffects(aDecay, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aChainCache");
 
 	// The decay of the waves over time
 	aTermination = nAttr.create("termination", "termination", MFnNumericData::kDouble, 0.0);
@@ -129,6 +154,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: termination");
 	stat = attributeAffects(aTermination, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aOutput");
+	stat = attributeAffects(aTermination, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aChainCache");
 
 	// Scale the amplitude so impulses retain velocity. Uses absolute value otherwise
 	aNormAmp = nAttr.create("normalizeAmplitude", "normalizeAmplitude", MFnNumericData::kBoolean, false);
@@ -136,6 +163,8 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: normalizeAmplitude");
 	stat = attributeAffects(aNormAmp, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput");
+	stat = attributeAffects(aNormAmp, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aNormAmp -> aChainCache");
 
 	// Scale the amplitude so impulses retain velocity. Uses absolute value otherwise
 	aIgnoreFirst = nAttr.create("ignoreFirstFrame", "ignoreFirstFrame", MFnNumericData::kBoolean, true);
@@ -143,53 +172,91 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: ignoreFirstFrame");
 	stat = attributeAffects(aIgnoreFirst, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutput");
+	stat = attributeAffects(aIgnoreFirst, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aChainCache");
 
     // The step size for this frame. REQUIRES RE-SIM TO UPDATE
     aStep = nAttr.create("step", "step", MFnNumericData::kDouble, 1.0);
     nAttr.setKeyable(true);
     stat = addAttribute(aStep);
     MCHECKERRORMSG(stat, "addAttribute: step");
+	stat = attributeAffects(aStep, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aStorage");
+	stat = attributeAffects(aStep, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
 	stat = attributeAffects(aStep, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput");
+	stat = attributeAffects(aStep, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aChainCache");
 
 	// The input time value
 	aTime = uAttr.create("timeIn", "timeIn", MFnUnitAttribute::kTime);
 	uAttr.setKeyable(true);
 	stat = addAttribute(aTime);
 	MCHECKERRORMSG(stat, "addAttribute: time");
+	stat = attributeAffects(aTime, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aStorage");
+	stat = attributeAffects(aTime, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
 	stat = attributeAffects(aTime, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput");
+	stat = attributeAffects(aTime, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aTime -> aChainCache");
 
 	// Flag on whether to update the stored harmonic data
 	aUpdate = nAttr.create("update", "update", MFnNumericData::kBoolean, false);
 	stat = addAttribute(aUpdate);
 	MCHECKERRORMSG(stat, "addAttribute: update");
+	stat = attributeAffects(aUpdate, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aStorage");
+	stat = attributeAffects(aUpdate, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
 	stat = attributeAffects(aUpdate, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput");
+	stat = attributeAffects(aUpdate, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aChainCache");
 
     // The worldspace matrix whose space we calculate relative to
     aReference = mAttr.create("reference", "reference", MFnMatrixAttribute::kDouble);
     stat = addAttribute(aReference);
     mAttr.setHidden(true);
 	MCHECKERRORMSG(stat, "addAttribute: reference");
+	stat = attributeAffects(aReference, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aStorage");
+	stat = attributeAffects(aReference, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
 	stat = attributeAffects(aReference, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput");
+	stat = attributeAffects(aReference, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aReference -> aChainCache");
 
 	// The local input matrix
     aInput = mAttr.create("input", "input", MFnMatrixAttribute::kDouble);
     stat = addAttribute(aInput);
     mAttr.setHidden(true);
     MCHECKERRORMSG(stat, "addAttribute: input");
+	stat = attributeAffects(aInput, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aStorage");
+	stat = attributeAffects(aInput, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
 	stat = attributeAffects(aInput, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutput");
+	stat = attributeAffects(aInput, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aChainCache");
 
     // The world parent inverse matrix so the output can be in local space
     aParent = mAttr.create("parent", "parent", MFnMatrixAttribute::kDouble);
     stat = addAttribute(aParent);
     mAttr.setHidden(true);
     MCHECKERRORMSG(stat, "addAttribute: parent");
+	stat = attributeAffects(aParent, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aStorage");
+	stat = attributeAffects(aParent, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccel");
 	stat = attributeAffects(aParent, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aOutput");
+	stat = attributeAffects(aParent, aChainCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aChainCache");
 
     return MS::kSuccess;
 }
@@ -197,7 +264,7 @@ MStatus harmonics::initialize(){
 MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     MStatus status;
 
-    if( plug == aStorage ) {
+    if( plug == aPositionCache ) {
 		// Input Data
 		MDataHandle referenceH = data.inputValue(aReference, &status); // inverse world
 		MCHECKERROR(status);
@@ -211,7 +278,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		MCHECKERROR(status);
 
 		// Output Data Handles
-		MDataHandle storageH = data.outputValue(aStorage, &status);
+		MDataHandle storageH = data.outputValue(aPositionCache, &status);
 		MCHECKERROR(status);
 
 		// Get simple input data
@@ -257,23 +324,34 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			storageH.setMPxData(outStore);
 		}
     } 
-    else if( plug == aAccel ) {
+    else if( plug == aAccelCache ) {
+		// If the input value is connected already, then I don't need to do anything
+		if (plug.isDestination()){
+
+			MDataHandle accelInH = data.inputValue(aAccelCache, &status);
+			MDataHandle accelOutH = data.outputValue(aAccelCache, &status);
+			accelOutH.copy(accelInH);
+
+			return MS::kSuccess;
+		}
+
 		// Input Data
 		MDataHandle timeH = data.inputValue(aTime, &status);
 		MCHECKERROR(status);
-		MDataHandle storageH = data.inputValue(aStorage, &status);
-		MCHECKERROR(status);
-		// Output Data
-		MDataHandle accelH = data.outputValue(aAccel, &status);
-		MCHECKERROR(status);
-
 		MTime time = timeH.asTime();
 		double dframe = time.value();
 
 		// Only store integer frames otherwise things get crazy
 		int frame = (int)dframe;
 		if (dframe == double(frame)) {
+
+			// Output Data
+			MDataHandle accelOutH = data.outputValue(aAccelCache, &status);
+			MCHECKERROR(status);
+
 			// Get input data
+			MDataHandle storageH = data.inputValue(aPositionCache, &status);
+			MCHECKERROR(status);
 			auto storePD = storageH.asPluginData();
 			HarmCacheProxy *hcpStore;
 			if (storePD == nullptr)
@@ -283,7 +361,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 
 			// Get the old value of accel
 			HarmCacheProxy *inAccel, *outAccel;
-			auto accelPD = accelH.asPluginData();
+			auto accelPD = accelOutH.asPluginData();
 			if (accelPD == nullptr)
 				inAccel = (HarmCacheProxy *) HarmCacheProxy::creator();
 			else
@@ -301,7 +379,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			HarmCacheMap &accel = inAccel->getMap();
 			updateAccel(storage, accel, frame);
 			outAccel->getMap() = accel;
-			accelH.setMPxData(outAccel);
+			accelOutH.setMPxData(outAccel);
 		}
     } 
     else if( plug == aOutput ) {
@@ -334,7 +412,7 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
         MCHECKERROR(status);
 
         // pluginData
-        MDataHandle accelH = data.inputValue(aAccel, &status);
+        MDataHandle accelH = data.outputValue(aAccelCache, &status);
         MCHECKERROR(status);
 
 		// Output data
@@ -376,15 +454,15 @@ MStatus harmonics::setDependentsDirty(const MPlug& plug, MPlugArray& plugArray) 
 	// Only dirty the cache stuff if update is True
 	MPlug upPlug(thisMObject(), aUpdate);
 	if (upPlug.asBool()){
-		if (plug == aStorage){
-			plugArray.append(MPlug(thisMObject(), aAccel));
+		if (plug == aPositionCache){
+			plugArray.append(MPlug(thisMObject(), aAccelCache));
 		}
 
 		if ( plug == aStep || plug == aTime || plug == aUpdate ||
 				plug == aReference || plug == aInput || plug == aParent){
 
-			plugArray.append(MPlug(thisMObject(), aAccel));
-			plugArray.append(MPlug(thisMObject(), aStorage));
+			plugArray.append(MPlug(thisMObject(), aAccelCache));
+			plugArray.append(MPlug(thisMObject(), aPositionCache));
 		}
 	}
 	return MPxNode::setDependentsDirty(plug, plugArray);
