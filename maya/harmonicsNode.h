@@ -21,13 +21,12 @@ public:
 	static	void*	creator();
 	static	MStatus	initialize();
 	//virtual MStatus preEvaluation(const  MDGContext& context, const MEvaluationNode& evaluationNode);
-	virtual MStatus setDependentsDirty(const MPlug& plug, MPlugArray& plugArray);
 
 public:
 	static MObject aOutput; // vector
 
 	static MObject aWorldRefInverse; // Matrix
-	static MObject aParentInverse; // Matrix
+	static MObject aParent; // Matrix
 	static MObject aInput; // Matrix
 
 	static MObject aPositionCache; // harmonicMap
