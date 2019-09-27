@@ -20,19 +20,22 @@ public:
 	virtual	MStatus	compute( const MPlug& plug, MDataBlock& data );
 	static	void*	creator();
 	static	MStatus	initialize();
+	MStatus clearCaches(MDataBlock& data, MObject& attribute);
+
 	//virtual MStatus preEvaluation(const  MDGContext& context, const MEvaluationNode& evaluationNode);
-	virtual MStatus setDependentsDirty(const MPlug& plug, MPlugArray& plugArray);
 
 public:
 	static MObject aOutput; // vector
 
-	static MObject aReference; // Matrix
-	static MObject aParent; // Matrix
+	static MObject aWorldRefInverse; // Matrix
+	static MObject aParentInverse; // Matrix
 	static MObject aInput; // Matrix
 
-	static MObject aStorage; // harmonicMap
-	static MObject aAccel; // harmonicMap
+	static MObject aPositionCache; // harmonicMap
+	static MObject aAccelCache; // harmonicMap
+	static MObject aChainCache; // harmonicMap
 	static MObject aUpdate; // bool
+	static MObject aClear; // bool
 	static MObject aWaves; // int
 	static MObject aWaveLength; // int
 	static MObject aAmplitude; // double

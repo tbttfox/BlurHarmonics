@@ -1,5 +1,7 @@
 #include "harmonicSolver.h"
 #include <math.h>
+#include <cmath>
+
 
 # define TAU 6.28318530717958647692
 
@@ -65,7 +67,7 @@ void updateFirstFrame(const HarmCacheCIt &curIt, const HarmCacheCIt &nxtIt, Harm
 
 	Vec3 cur = std::get<1>(curIt->second);
 	Vec3 post = std::get<1>(nxtIt->second);
-	Vec3 prev = { 0.0, 0.0, 0.0 };
+	Vec3 prev = cur;
 
 	Vec3 vacc = calcAccel(cur, curKey, prev, prevKey, post, postKey);
 	double step = std::get<0>(curIt->second);
@@ -77,6 +79,8 @@ void updateFirstFrame(const HarmCacheCIt &curIt, const HarmCacheCIt &nxtIt, Harm
 void updateAccel(const HarmCacheMap &cache, HarmCacheMap &accel, double inserted){
     // Update the acceleration values near where we just
     // inserted a new value
+
+	inserted = round(inserted);
 	auto curIt = cache.find(inserted);
 	if (curIt == cache.end()) return;
 
@@ -136,11 +140,10 @@ double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey
 }
 
 // Solve the simple harmonic for the given time value
-Vec3 harmonicSolver(double time,
-        double waves, double length, double amp, double decay,
-		double term,
+Vec3 harmonicSolver(
+		double time, double waves, double length, double amp, double decay, double term,
         const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache,
-        bool ignoreInitialAccel
+		bool ignoreInitialAccel
         ){
 
     Vec3 val = {0.0, 0.0, 0.0};
@@ -182,3 +185,5 @@ Vec3 harmonicSolver(double time,
 
     return val;
 }
+
+
