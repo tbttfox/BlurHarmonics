@@ -6,6 +6,7 @@
 #include <maya/MFnMatrixAttribute.h>
 #include <maya/MFnUnitAttribute.h>
 #include <maya/MMatrix.h>
+#include <maya/MPoint.h>
 #include <maya/MTime.h>
 
 
@@ -29,13 +30,14 @@ MTypeId harmonics::id(0x001226F8);
 MObject harmonics::aOutput; // vector
 
 MObject harmonics::aWorldRefInverse; // Matrix
-MObject harmonics::aParent; // Matrix
+MObject harmonics::aParentInverse; // Matrix
 MObject harmonics::aInput; // Matrix
 
 MObject harmonics::aPositionCache; // harmonicMap
 MObject harmonics::aAccelCache; // harmonicMap
 MObject harmonics::aChainCache; // harmonicMap
 MObject harmonics::aUpdate; // bool
+MObject harmonics::aClear; // bool
 MObject harmonics::aWaves; // int
 MObject harmonics::aWaveLength; // int
 MObject harmonics::aAmplitude; // double
@@ -179,7 +181,7 @@ MStatus harmonics::initialize(){
 	//MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aChainCache");
 
     // The animatable step size for this frame. REQUIRES RE-SIM TO UPDATE
-    aStep = nAttr.create("step", "step", MFnNumericData::kDouble, 1.0);
+    aStep = nAttr.create("frequencyMult", "frequencyMult", MFnNumericData::kDouble, 1.0);
     nAttr.setKeyable(true);
     stat = addAttribute(aStep);
     MCHECKERRORMSG(stat, "addAttribute: step");
@@ -219,6 +221,19 @@ MStatus harmonics::initialize(){
 	//stat = attributeAffects(aUpdate, aChainCache);
 	//MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aChainCache");
 
+	// Flag on whether to completely clear the cache data
+	aClear = nAttr.create("clear", "clear", MFnNumericData::kBoolean, false);
+	stat = addAttribute(aClear);
+	MCHECKERRORMSG(stat, "addAttribute: clear");
+	stat = attributeAffects(aClear, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aPositionCache");
+	stat = attributeAffects(aClear, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aAccelCache");
+	stat = attributeAffects(aClear, aOutput);
+	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutput");
+	//stat = attributeAffects(aUpdate, aChainCache);
+	//MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aChainCache");
+
 	// The worldspace matrix whose space we calculate relative to
     aWorldRefInverse = mAttr.create("worldRefInverse", "worldRefInverse", MFnMatrixAttribute::kDouble);
     stat = addAttribute(aWorldRefInverse);
@@ -234,6 +249,14 @@ MStatus harmonics::initialize(){
 	//MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aChainCache");
 
 	// The world input matrix
+    aParentInverse = mAttr.create("parentInverse", "parentInverse", MFnMatrixAttribute::kDouble);
+    stat = addAttribute(aParentInverse);
+    mAttr.setHidden(true);
+    MCHECKERRORMSG(stat, "addAttribute: aParentInverse");
+	stat = attributeAffects(aParentInverse, aOutput);
+	MCHECKERRORMSG(stat, "attributeAffects: aParentInverse -> aOutput");
+
+	// The world input matrix
     aInput = mAttr.create("input", "input", MFnMatrixAttribute::kDouble);
     stat = addAttribute(aInput);
     mAttr.setHidden(true);
@@ -247,22 +270,41 @@ MStatus harmonics::initialize(){
 	//stat = attributeAffects(aInput, aChainCache);
 	//MCHECKERRORMSG(stat, "attributeAffects: aInput -> aChainCache");
 
-    // The world parent inverse matrix so the output can be in local space
-    aParent = mAttr.create("parentMatrix", "parentMatrix", MFnMatrixAttribute::kDouble);
-    stat = addAttribute(aParent);
-    mAttr.setHidden(true);
-    MCHECKERRORMSG(stat, "addAttribute: aParent");
-	stat = attributeAffects(aParent, aPositionCache);
-	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aPositionCache");
-	stat = attributeAffects(aParent, aAccelCache);
-	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aAccelCache");
-	stat = attributeAffects(aParent, aOutput);
-	MCHECKERRORMSG(stat, "attributeAffects: aParent -> aOutput");
-	//stat = attributeAffects(aParent, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aParent -> aChainCache");
-
     return MS::kSuccess;
 }
+
+
+
+MStatus harmonics::clearCaches(MDataBlock& data, MObject& attribute) {
+	MStatus status;
+	MDataHandle storageH = data.outputValue(attribute, &status);
+	MCHECKERROR(status);
+
+	MPxData *pd = storageH.asPluginData();
+	HarmCacheMap inMap;
+	HarmCacheProxy *inStore, *outStore;
+	if (pd == nullptr)
+		inStore = (HarmCacheProxy *) HarmCacheProxy::creator();
+	else
+		inStore = (HarmCacheProxy *) pd;
+
+	// Build the storage output data object
+	MFnPluginData fnDataCreator;
+	MTypeId tmpid(HarmCacheProxy::id);
+	fnDataCreator.create(tmpid, &status);
+	MCHECKERROR(status);
+	outStore = (HarmCacheProxy*)fnDataCreator.data(&status);
+	MCHECKERROR(status);
+
+	// Build the new data
+	HarmCacheMap storage;
+	outStore->getMap() = storage;
+	// Set the output plug
+	storageH.setMPxData(outStore);
+	return status;
+}
+
+
 
 MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     MStatus status;
@@ -278,13 +320,19 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 #endif
 
 	if( plug == aPositionCache ) {
+		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
+		bool clear = clearH.asBool();
+		if (clear) {
+			return clearCaches(data, aPositionCache);
+		}
+
 		MDataHandle updateH = data.inputValue(aUpdate, &status); // doUpdate
 		bool update = updateH.asBool();
 		if (!update) return status;
+
+
 		// Input Data
 		MDataHandle refInvH = data.inputValue(aWorldRefInverse, &status); // inverse world
-		MCHECKERROR(status);
-		MDataHandle parMatH = data.inputValue(aParent, &status); // world space
 		MCHECKERROR(status);
 		MDataHandle inputH = data.inputValue(aInput, &status); // local space
 		MCHECKERROR(status);
@@ -309,10 +357,10 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			MMatrix mat;
 
 			MMatrix inMat = inputH.asMatrix();
-			MMatrix parMat = parMatH.asMatrix();
+			//MMatrix parMat = parMatH.asMatrix();
 			MMatrix refInvMat = refInvH.asMatrix();
-			mat.setToProduct(inMat, parMat);
-			mat.setToProduct(mat, refInvMat);
+			//mat.setToProduct(inMat, parMat);
+			mat.setToProduct(inMat, refInvMat);
 
 			//mat.setToProduct(inputH.asMatrix(), parInvH.asMatrix());
 			//mat.setToProduct(mat, refInvH.asMatrix());
@@ -348,6 +396,17 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		}
     } 
     else if( plug == aAccelCache ) {
+
+		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
+		bool clear = clearH.asBool();
+		if (clear) {
+			// If there's no connection asking for it, I have to do this to
+			// force computation of the position cache
+			MDataHandle storageH = data.inputValue(aPositionCache, &status);
+			MCHECKERROR(status);
+			return clearCaches(data, aPositionCache);
+		}
+
 		MDataHandle updateH = data.inputValue(aUpdate, &status); // doUpdate
 		bool update = updateH.asBool();
 		if (!update) return status;
@@ -445,6 +504,10 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		MDataHandle outH = data.outputValue(aOutput, &status);
 		MCHECKERROR(status);
 
+		// Space Switching
+		MDataHandle parInvH = data.inputValue(aParentInverse, &status); // local space
+		MCHECKERROR(status);
+
 		auto frame = timeH.asTime().value();
 		auto waves = wavesH.asDouble();
 		auto length = waveLengthH.asDouble();
@@ -454,11 +517,16 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		auto ampAxisRaw = axisAmpH.asDouble3();
 		auto normAmp = normAmpH.asBool();
 		auto ignoreFirst = ignoreH.asBool();
+		auto parInv = parInvH.asMatrix();
+
+		// The output from the harmonic solver is a vec3 offset from the input position
+		// aligned to worldspace.
+		// Therefore, to put the output in its local space, we only need to handle orientation
+		// so we can simply zero out the position terms
+		parInv(3, 0) = 0.0; parInv(3, 1) = 0.0; parInv(3, 2) = 0.0; 
 
 		Vec3 ampAxis;
-		ampAxis[0] = ampAxisRaw[0];
-		ampAxis[1] = ampAxisRaw[1];
-		ampAxis[2] = ampAxisRaw[2];
+		ampAxis[0] = ampAxisRaw[0]; ampAxis[1] = ampAxisRaw[1]; ampAxis[2] = ampAxisRaw[2];
 
 		MPxData *pd = accelH.asPluginData();
 		if (pd != nullptr) {
@@ -466,7 +534,12 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			HarmCacheMap &accel = hcp->getMap();
 			if (!accel.empty()) {
 				Vec3 ret = harmonicSolver(frame, waves, length, ampl, decay, term, ampAxis, !normAmp, accel, ignoreFirst);
-				outH.set3Double(ret[0], ret[1], ret[2]);
+				MPoint tt(ret[0], ret[1], ret[2]);
+				tt = tt * parInv;
+				outH.set3Double(tt[0], tt[1], tt[2]);
+			}
+			else {
+				outH.set3Double(0.0, 0.0, 0.0);
 			}
 		}
     } 

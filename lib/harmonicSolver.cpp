@@ -67,7 +67,7 @@ void updateFirstFrame(const HarmCacheCIt &curIt, const HarmCacheCIt &nxtIt, Harm
 
 	Vec3 cur = std::get<1>(curIt->second);
 	Vec3 post = std::get<1>(nxtIt->second);
-	Vec3 prev = { 0.0, 0.0, 0.0 };
+	Vec3 prev = cur;
 
 	Vec3 vacc = calcAccel(cur, curKey, prev, prevKey, post, postKey);
 	double step = std::get<0>(curIt->second);
