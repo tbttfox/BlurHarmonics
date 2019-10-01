@@ -1,0 +1,30 @@
+global proc AEharmonics_buildQT(string $nodeName) {
+    python("import harmTemplate");
+
+    // When the $nodeName is passed in, there will be a trailing dot
+    $nodeName = python("'" + $nodeName + "'.rstrip('.')");
+
+    string $par = `setParent -q`;
+    python("harmTemplate.builder('" + $par + "', '" + $nodeName + "')");
+}
+
+global proc AEharmonics_updateQT(string $nodeName) {
+    // When the $nodeName is passed in, there will be a trailing dot
+    $nodeName = python("'" + $nodeName + "'.rstrip('.')");
+
+    string $par = `setParent -q`;
+    python("harmTemplate.updater('" + $par + "', '" + $nodeName + "')");
+}
+
+global proc AEharmonicsTemplate(string $nodeName) {
+    editorTemplate -beginScrollLayout;
+
+        //Call custom scripts to manage the PyQt UI elements
+        editorTemplate -callCustom "AEharmonics_buildQT" "AEharmonics_updateQT" "";
+
+        //This is boilerplate stuff that should generally be included at the end.
+		editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}
+
