@@ -38,7 +38,6 @@ MObject harmonics::aInput; // Matrix
 
 MObject harmonics::aPositionCache; // harmonicMap
 MObject harmonics::aAccelCache; // harmonicMap
-MObject harmonics::aChainCache; // harmonicMap
 MObject harmonics::aUpdate; // bool
 MObject harmonics::aClear; // bool
 MObject harmonics::aWaves; // int
@@ -69,16 +68,19 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "addAttribute: outputX");
 	uAttr.setWritable(false);
 	uAttr.setStorable(false);
+	uAttr.setCached(false);
 
 	aOutputY = uAttr.create("outputY", "outy", MFnUnitAttribute::kDistance, 0.0, &stat);
     MCHECKERRORMSG(stat, "addAttribute: outputY");
 	uAttr.setWritable(false);
 	uAttr.setStorable(false);
+	uAttr.setCached(false);
 
 	aOutputZ = uAttr.create("outputZ", "outz", MFnUnitAttribute::kDistance, 0.0, &stat);
     MCHECKERRORMSG(stat, "addAttribute: outputZ");
 	uAttr.setWritable(false);
 	uAttr.setStorable(false);
+	uAttr.setCached(false);
 
 	aOutput = nAttr.create("output", "output", aOutputX, aOutputY, aOutputZ, &stat);
 	nAttr.setHidden(true);
@@ -86,13 +88,7 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "addAttribute: output");
 	nAttr.setWritable(false);
 	nAttr.setStorable(false);
-
-	// Storage and output of the newly calculated accelerations for chaining
-	aChainCache = tAttr.create("chainCache", "chainCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
-	MCHECKERRORMSG(stat, "createAttribute: chainCache");
-	tAttr.setHidden(true);
-	stat = addAttribute(aChainCache);
-	MCHECKERRORMSG(stat, "addAttribute: chainCache");
+	nAttr.setCached(false);
 
 	// Storage of the per-frame acceleration
 	aAccelCache = tAttr.create("accelCache", "accelCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
@@ -102,8 +98,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: accelCache");
 	stat = attributeAffects(aAccelCache, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAccelCache -> aOutput");
-	//stat = attributeAffects(aAccelCache, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aAccelCache -> aChainCache");
+	stat = attributeAffects(aAccelCache, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aAccelCache -> aOutputX");
+	stat = attributeAffects(aAccelCache, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aAccelCache -> aOutputY");
+	stat = attributeAffects(aAccelCache, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aAccelCache -> aOutputZ");
 
 	// Storage of the per-frame world position
 	aPositionCache = tAttr.create("positionCache", "positionCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
@@ -115,8 +115,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aAccelCache");
 	stat = attributeAffects(aPositionCache, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aOutput");
-	//stat = attributeAffects(aPositionCache, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aChainCache");
+	stat = attributeAffects(aPositionCache, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aOutputX");
+	stat = attributeAffects(aPositionCache, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aOutputY");
+	stat = attributeAffects(aPositionCache, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aPositionCache -> aOutputZ");
 
 	// The number of waves each impulse causes
 	aWaves = nAttr.create("numWaves", "numWaves", MFnNumericData::kDouble, 5.0);
@@ -125,8 +129,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: numWaves");
 	stat = attributeAffects(aWaves, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutput");
-	//stat = attributeAffects(aWaves, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aChainCache");
+	stat = attributeAffects(aWaves, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutputX");
+	stat = attributeAffects(aWaves, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutputY");
+	stat = attributeAffects(aWaves, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaves -> aOutputZ");
 
 	// The length of the waves in frames
 	aWaveLength = nAttr.create("waveLength", "waveLength", MFnNumericData::kDouble, 5.0);
@@ -135,8 +143,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: waveLength");
 	stat = attributeAffects(aWaveLength, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aWaveLength -> aOutput");
-	//stat = attributeAffects(aWaveLength, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aWaveLength -> aChainCache");
+	stat = attributeAffects(aWaveLength, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaveLength -> aOutputX");
+	stat = attributeAffects(aWaveLength, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaveLength -> aOutputY");
+	stat = attributeAffects(aWaveLength, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aWaveLength -> aOutputZ");
 
 	// An overall multiplier on the wave amplitude
 	aAmplitude = nAttr.create("amplitude", "amplitude", MFnNumericData::kDouble, 1.0);
@@ -145,8 +157,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: amplitude");
 	stat = attributeAffects(aAmplitude, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutput");
-	//stat = attributeAffects(aAmplitude, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aChainCache");
+	stat = attributeAffects(aAmplitude, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutputX");
+	stat = attributeAffects(aAmplitude, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutputY");
+	stat = attributeAffects(aAmplitude, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aAmplitude -> aOutputZ");
 
 	// The per-axis (relative to the reference) amplitude multipliers
 	aAxisAmp = nAttr.create("axisAmp", "axisAmp", MFnNumericData::k3Double, 1.0);
@@ -155,8 +171,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: axisAmp");
 	stat = attributeAffects(aAxisAmp, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutput");
-	//stat = attributeAffects(aAxisAmp, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aChainCache");
+	stat = attributeAffects(aAxisAmp, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutputX");
+	stat = attributeAffects(aAxisAmp, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutputY");
+	stat = attributeAffects(aAxisAmp, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aAxisAmp -> aOutputZ");
 
     // The decay of the waves over time
     aDecay = nAttr.create("decay", "decay", MFnNumericData::kDouble, 3.0);
@@ -166,8 +186,12 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "addAttribute: decay");
 	stat = attributeAffects(aDecay, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutput");
-	//stat = attributeAffects(aDecay, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aChainCache");
+	stat = attributeAffects(aDecay, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutputX");
+	stat = attributeAffects(aDecay, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutputY");
+	stat = attributeAffects(aDecay, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aDecay -> aOutputZ");
 
 	// The multiplier that the waves decay to
 	aTermination = nAttr.create("termination", "termination", MFnNumericData::kDouble, 0.0);
@@ -178,8 +202,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: termination");
 	stat = attributeAffects(aTermination, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aOutput");
-	//stat = attributeAffects(aTermination, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aChainCache");
+	stat = attributeAffects(aTermination, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aOutputX");
+	stat = attributeAffects(aTermination, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aOutputY");
+	stat = attributeAffects(aTermination, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aTermination -> aOutputZ");
 
 	// Scale the amplitude so impulses conserve velocity. Uses absolute value otherwise
 	aNormAmp = nAttr.create("normalizeAmplitude", "normalizeAmplitude", MFnNumericData::kBoolean, false);
@@ -187,8 +215,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: normalizeAmplitude");
 	stat = attributeAffects(aNormAmp, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aNormAmp -> aOutput");
-	//stat = attributeAffects(aNormAmp, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aNormAmp -> aChainCache");
+	stat = attributeAffects(aNormAmp, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aNormAmp -> aOutputX");
+	stat = attributeAffects(aNormAmp, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aNormAmp -> aOutputY");
+	stat = attributeAffects(aNormAmp, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aNormAmp -> aOutputZ");
 
 	// Ignore the acceleration from rest on the first considered frame
 	aIgnoreFirst = nAttr.create("ignoreFirstFrame", "ignoreFirstFrame", MFnNumericData::kBoolean, true);
@@ -196,8 +228,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "addAttribute: ignoreFirstFrame");
 	stat = attributeAffects(aIgnoreFirst, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutput");
-	//stat = attributeAffects(aIgnoreFirst, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aChainCache");
+	stat = attributeAffects(aIgnoreFirst, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutputX");
+	stat = attributeAffects(aIgnoreFirst, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutputY");
+	stat = attributeAffects(aIgnoreFirst, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aIgnoreFirst -> aOutputZ");
 
     // The animatable step size for this frame. REQUIRES RE-SIM TO UPDATE
     aStep = nAttr.create("frequencyMult", "frequencyMult", MFnNumericData::kDouble, 1.0);
@@ -210,8 +246,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccelCache");
 	stat = attributeAffects(aStep, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput");
-	//stat = attributeAffects(aStep, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aStep -> aChainCache");
+	stat = attributeAffects(aStep, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutputX");
+	stat = attributeAffects(aStep, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutputY");
+	stat = attributeAffects(aStep, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutputZ");
 
 	// The input time value
 	aTime = uAttr.create("timeIn", "timeIn", MFnUnitAttribute::kTime);
@@ -224,8 +264,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aAccelCache");
 	stat = attributeAffects(aTime, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutput");
-	//stat = attributeAffects(aTime, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aStep -> aChainCache");
+	stat = attributeAffects(aTime, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutputX");
+	stat = attributeAffects(aTime, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutputY");
+	stat = attributeAffects(aTime, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aStep -> aOutputZ");
 
 	// Flag on whether to update the stored harmonic data
 	aUpdate = nAttr.create("update", "update", MFnNumericData::kBoolean, false);
@@ -237,8 +281,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aAccelCache");
 	stat = attributeAffects(aUpdate, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutput");
-	//stat = attributeAffects(aUpdate, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aChainCache");
+	stat = attributeAffects(aUpdate, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutputX");
+	stat = attributeAffects(aUpdate, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutputY");
+	stat = attributeAffects(aUpdate, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aOutputZ");
 
 	// Flag on whether to completely clear the cache data
 	aClear = nAttr.create("clear", "clear", MFnNumericData::kBoolean, false);
@@ -250,8 +298,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aAccelCache");
 	stat = attributeAffects(aClear, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutput");
-	//stat = attributeAffects(aUpdate, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aUpdate -> aChainCache");
+	stat = attributeAffects(aClear, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutputX");
+	stat = attributeAffects(aClear, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutputY");
+	stat = attributeAffects(aClear, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutputZ");
 
 	// The worldspace matrix whose space we calculate relative to
     aWorldRefInverse = mAttr.create("worldRefInverse", "worldRefInverse", MFnMatrixAttribute::kDouble);
@@ -264,8 +316,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aAccelCache");
 	stat = attributeAffects(aWorldRefInverse, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aOutput");
-	//stat = attributeAffects(aWorldRefInverse, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aChainCache");
+	stat = attributeAffects(aWorldRefInverse, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aOutputX");
+	stat = attributeAffects(aWorldRefInverse, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aOutputY");
+	stat = attributeAffects(aWorldRefInverse, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aWorldRefInverse -> aOutputZ");
 
 	// The world input matrix
     aParentInverse = mAttr.create("parentInverse", "parentInverse", MFnMatrixAttribute::kDouble);
@@ -274,6 +330,12 @@ MStatus harmonics::initialize(){
     MCHECKERRORMSG(stat, "addAttribute: aParentInverse");
 	stat = attributeAffects(aParentInverse, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aParentInverse -> aOutput");
+	stat = attributeAffects(aParentInverse, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aParentInverse -> aOutputX");
+	stat = attributeAffects(aParentInverse, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aParentInverse -> aOutputY");
+	stat = attributeAffects(aParentInverse, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aParentInverse -> aOutputZ");
 
 	// The world input matrix
     aInput = mAttr.create("input", "input", MFnMatrixAttribute::kDouble);
@@ -286,8 +348,12 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aAccelCache");
 	stat = attributeAffects(aInput, aOutput);
 	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutput");
-	//stat = attributeAffects(aInput, aChainCache);
-	//MCHECKERRORMSG(stat, "attributeAffects: aInput -> aChainCache");
+	stat = attributeAffects(aInput, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutputX");
+	stat = attributeAffects(aInput, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutputY");
+	stat = attributeAffects(aInput, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aInput -> aOutputZ");
 
     return MS::kSuccess;
 }
@@ -328,23 +394,7 @@ MStatus harmonics::clearCaches(MDataBlock& data, MObject& attribute) {
 MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     MStatus status;
 
-#ifdef _DEBUG
-	// A quick debug section so I can add breakpoints that
-	// check for a specific node name
-	MFnDependencyNode dn(thisMObject());
-	MString mNodeName = dn.name();
-	std::string mynodeName(mNodeName.asChar());
-	std::string mytestName = "harmonics3";
-	bool checkers = mynodeName == mytestName;
-#endif
-
 	if( plug == aPositionCache ) {
-		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
-		bool clear = clearH.asBool();
-		if (clear) {
-			return clearCaches(data, aPositionCache);
-		}
-
 		MDataHandle updateH = data.inputValue(aUpdate, &status); // doUpdate
 		bool update = updateH.asBool();
 		if (!update) return status;
@@ -416,16 +466,6 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     } 
     else if( plug == aAccelCache ) {
 
-		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
-		bool clear = clearH.asBool();
-		if (clear) {
-			// If there's no connection asking for it, I have to do this to
-			// force computation of the position cache
-			MDataHandle storageH = data.inputValue(aPositionCache, &status);
-			MCHECKERROR(status);
-			return clearCaches(data, aPositionCache);
-		}
-
 		MDataHandle updateH = data.inputValue(aUpdate, &status); // doUpdate
 		bool update = updateH.asBool();
 		if (!update) return status;
@@ -486,7 +526,21 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			accelOutH.setMPxData(outAccel);
 		}
     } 
-    else if( plug == aOutput ) {
+    else if( plug == aOutput || plug == aOutputX || plug == aOutputY || plug == aOutputZ ) {
+		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
+		bool clear = clearH.asBool();
+		if (clear) {
+			// If there's no connection asking for it, I have to do this to
+			// force computation of the position cache
+			MDataHandle storageH = data.inputValue(aPositionCache, &status);
+			MCHECKERROR(status);
+			status = clearCaches(data, aPositionCache);
+			MCHECKERROR(status);
+			status = clearCaches(data, aAccelCache);
+			MCHECKERROR(status);
+			return status;
+		}
+
 		// bool
         MDataHandle normAmpH = data.inputValue(aNormAmp, &status);
         MCHECKERROR(status);
@@ -561,6 +615,10 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 				outH.set3Double(0.0, 0.0, 0.0);
 			}
 		}
+		data.setClean(aOutputX);
+		data.setClean(aOutputY);
+		data.setClean(aOutputZ);
+		data.setClean(aOutput);
     } 
     else {
         return MS::kUnknownParameter;

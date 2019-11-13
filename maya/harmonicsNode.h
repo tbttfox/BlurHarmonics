@@ -36,7 +36,6 @@ public:
 
 	static MObject aPositionCache; // harmonicMap
 	static MObject aAccelCache; // harmonicMap
-	static MObject aChainCache; // harmonicMap
 	static MObject aUpdate; // bool
 	static MObject aClear; // bool
 	static MObject aWaves; // int
