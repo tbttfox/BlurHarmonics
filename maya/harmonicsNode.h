@@ -26,6 +26,9 @@ public:
 
 public:
 	static MObject aOutput; // vector
+	static MObject aOutputX; // vector
+	static MObject aOutputY; // vector
+	static MObject aOutputZ; // vector
 
 	static MObject aWorldRefInverse; // Matrix
 	static MObject aParentInverse; // Matrix

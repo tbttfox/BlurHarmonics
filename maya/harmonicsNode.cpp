@@ -25,9 +25,12 @@
         return MS::kFailure;        \
     }
 
-MTypeId harmonics::id(0x001226F8);
+MTypeId harmonics::id(0x00122704);
 
 MObject harmonics::aOutput; // vector
+MObject harmonics::aOutputX; // distance
+MObject harmonics::aOutputY; // distance
+MObject harmonics::aOutputZ; // distance
 
 MObject harmonics::aWorldRefInverse; // Matrix
 MObject harmonics::aParentInverse; // Matrix
@@ -62,11 +65,27 @@ MStatus harmonics::initialize(){
     MStatus stat;
 
     // Output translation vector
-    aOutput = nAttr.create("output", "output", MFnNumericData::k3Double, 0.0);
-    nAttr.setWritable(false);
-    nAttr.setHidden(true);
-    stat = addAttribute(aOutput);
+	aOutputX = uAttr.create("outputX", "outx", MFnUnitAttribute::kDistance, 0.0, &stat);
+    MCHECKERRORMSG(stat, "addAttribute: outputX");
+	uAttr.setWritable(false);
+	uAttr.setStorable(false);
+
+	aOutputY = uAttr.create("outputY", "outy", MFnUnitAttribute::kDistance, 0.0, &stat);
+    MCHECKERRORMSG(stat, "addAttribute: outputY");
+	uAttr.setWritable(false);
+	uAttr.setStorable(false);
+
+	aOutputZ = uAttr.create("outputZ", "outz", MFnUnitAttribute::kDistance, 0.0, &stat);
+    MCHECKERRORMSG(stat, "addAttribute: outputZ");
+	uAttr.setWritable(false);
+	uAttr.setStorable(false);
+
+	aOutput = nAttr.create("output", "output", aOutputX, aOutputY, aOutputZ, &stat);
+	nAttr.setHidden(true);
+	stat = addAttribute(aOutput);
     MCHECKERRORMSG(stat, "addAttribute: output");
+	nAttr.setWritable(false);
+	nAttr.setStorable(false);
 
 	// Storage and output of the newly calculated accelerations for chaining
 	aChainCache = tAttr.create("chainCache", "chainCache", HarmCacheProxy::id, MObject::kNullObj, &stat);
