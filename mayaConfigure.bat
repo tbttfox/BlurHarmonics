@@ -1,6 +1,6 @@
 setlocal
 
-SET MAYA_VERSION=2018
+SET MAYA_VERSION=2023
 SET BUILD=mayabuild_%MAYA_VERSION%
 SET COMPILER=Visual Studio 15 2017 Win64
 
@@ -14,6 +14,7 @@ cmake ^
     -DMAYA_VERSION=%MAYA_VERSION% ^
     -G "%COMPILER%" ..\
 
+cmake --build . --config RelWithDebInfo
 REM cmake --build . --config Release --target INSTALL
 
 pause

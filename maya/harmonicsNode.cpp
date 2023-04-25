@@ -12,6 +12,7 @@
 
 #include <maya/MFnDependencyNode.h>
 #include <string>
+#include <cmath>
 
 
 #define MCHECKERROR(STAT)         \
@@ -40,6 +41,7 @@ MObject harmonics::aPositionCache; // harmonicMap
 MObject harmonics::aAccelCache; // harmonicMap
 MObject harmonics::aUpdate; // bool
 MObject harmonics::aClear; // bool
+MObject harmonics::aEnabled; // bool
 MObject harmonics::aWaves; // int
 MObject harmonics::aWaveLength; // int
 MObject harmonics::aAmplitude; // double
@@ -237,6 +239,7 @@ MStatus harmonics::initialize(){
 
     // The animatable step size for this frame. REQUIRES RE-SIM TO UPDATE
     aStep = nAttr.create("frequencyMult", "frequencyMult", MFnNumericData::kDouble, 1.0);
+    nAttr.setMin(1e-6);
     nAttr.setKeyable(true);
     stat = addAttribute(aStep);
     MCHECKERRORMSG(stat, "addAttribute: step");
@@ -304,6 +307,23 @@ MStatus harmonics::initialize(){
 	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutputY");
 	stat = attributeAffects(aClear, aOutputZ);
 	MCHECKERRORMSG(stat, "attributeAffects: aClear -> aOutputZ");
+
+	// Flag on whether to update the stored harmonic data
+	aEnabled = nAttr.create("enabled", "enabled", MFnNumericData::kBoolean, true);
+	stat = addAttribute(aEnabled);
+	MCHECKERRORMSG(stat, "addAttribute: update");
+	stat = attributeAffects(aEnabled, aPositionCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aEnabled -> aPositionCache");
+	stat = attributeAffects(aEnabled, aAccelCache);
+	MCHECKERRORMSG(stat, "attributeAffects: aEnabled -> aAccelCache");
+	stat = attributeAffects(aEnabled, aOutput);
+	MCHECKERRORMSG(stat, "attributeAffects: aEnabled -> aOutput");
+	stat = attributeAffects(aEnabled, aOutputX);
+	MCHECKERRORMSG(stat, "attributeAffects: aEnabled -> aOutputX");
+	stat = attributeAffects(aEnabled, aOutputY);
+	MCHECKERRORMSG(stat, "attributeAffects: aEnabled -> aOutputY");
+	stat = attributeAffects(aEnabled, aOutputZ);
+	MCHECKERRORMSG(stat, "attributeAffects: aEnabled -> aOutputZ");
 
 	// The worldspace matrix whose space we calculate relative to
     aWorldRefInverse = mAttr.create("worldRefInverse", "worldRefInverse", MFnMatrixAttribute::kDouble);
@@ -395,6 +415,10 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     MStatus status;
 
 	if( plug == aPositionCache ) {
+		MDataHandle enabledH = data.inputValue(aEnabled, &status);
+		bool enabled = enabledH.asBool();
+        if (!enabled) return status;
+
 		MDataHandle updateH = data.inputValue(aUpdate, &status); // doUpdate
 		bool update = updateH.asBool();
 		if (!update) return status;
@@ -456,7 +480,17 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			HarmCacheMap storage = inStore->getMap();
 			Vec3 tran;
 			double *mtran = mat[3]; // the matrix translation column
-			tran[0] = mtran[0]; tran[1] = mtran[1]; tran[2] = mtran[2];
+
+            if (!std::isnan(mtran[0])){
+                tran[0] = mtran[0];
+            }
+            if (!std::isnan(mtran[1])){
+                tran[1] = mtran[1];
+            }
+            if (!std::isnan(mtran[2])){
+                tran[2] = mtran[2];
+            }
+
 			storage[frame] = std::make_tuple(step, tran);
 
 			outStore->getMap() = storage;
@@ -465,9 +499,14 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		}
     } 
     else if( plug == aAccelCache ) {
+		MDataHandle enabledH = data.inputValue(aEnabled, &status);
+		bool enabled = enabledH.asBool();
+        if (!enabled) return status;
 
 		MDataHandle updateH = data.inputValue(aUpdate, &status); // doUpdate
 		bool update = updateH.asBool();
+
+
 		if (!update) return status;
 		// If the input value is connected already, then I don't need to do anything
 		if (plug.isDestination()){
@@ -527,6 +566,10 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 		}
     } 
     else if( plug == aOutput || plug == aOutputX || plug == aOutputY || plug == aOutputZ ) {
+		MDataHandle enabledH = data.inputValue(aEnabled, &status);
+		bool enabled = enabledH.asBool();
+        if (!enabled) return status;
+
 		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
 		bool clear = clearH.asBool();
 		if (clear) {

@@ -1,6 +1,7 @@
 #include "mapData.h"
 #include <sstream>
 #include <string>
+#include <cmath>
 
 //typedef HarmCacheMap std::unordered_map<int, HarmCacheData>;
 // frame: [step, [xval,  yval,  zval]]
@@ -71,7 +72,11 @@ MStatus HarmCacheProxy::readASCII(const MArgList& args, unsigned& lastParsedElem
         if (MS::kSuccess != status) {return MS::kFailure;}
 
         for (unsigned int j=0; j < 3; j++) {
-            ws[j] = args.asDouble(lastParsedElement++, &status);
+            double wsVal = args.asDouble(lastParsedElement++, &status);
+            if (std::isnan(wsVal)){
+                wsVal = 0.0;
+            }
+            ws[j] = wsVal;
             if (MS::kSuccess != status) {return MS::kFailure;}
         }
 
@@ -109,6 +114,9 @@ MStatus HarmCacheProxy::readBinary(istream& in, unsigned length) {
         for (unsigned j=0; j < 3; j++) {
             in.read((char*) &ws[j], sizeof(ws[j]));
 			rc += sizeof(ws[j]);
+            if (std::isnan(ws[j])){
+                ws[j] = 0.0;
+            }
             if (in.fail()){
 				return MS::kFailure;}
         }

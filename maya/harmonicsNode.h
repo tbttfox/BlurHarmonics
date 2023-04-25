@@ -38,6 +38,7 @@ public:
 	static MObject aAccelCache; // harmonicMap
 	static MObject aUpdate; // bool
 	static MObject aClear; // bool
+	static MObject aEnabled; // bool
 	static MObject aWaves; // int
 	static MObject aWaveLength; // int
 	static MObject aAmplitude; // double
