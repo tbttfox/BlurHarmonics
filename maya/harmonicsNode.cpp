@@ -649,10 +649,10 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			auto hcp = dynamic_cast<HarmCacheProxy*>(pd);
 			HarmCacheMap &accel = hcp->getMap();
 			if (!accel.empty()) {
-				Vec3 ret = harmonicSolver(frame, waves, length, ampl, decay, term, ampAxis, !normAmp, accel, ignoreFirst);
+				Vec3 ret = harmonicSolver(frame, waves, length, ampl, decay, term, !normAmp, accel, ignoreFirst);
 				MPoint tt(ret[0], ret[1], ret[2]);
 				tt = tt * parInv;
-				outH.set3Double(tt[0], tt[1], tt[2]);
+				outH.set3Double(tt[0] * ampAxis[0], tt[1] * ampAxis[1], tt[2] * ampAxis[2]);
 			}
 			else {
 				outH.set3Double(0.0, 0.0, 0.0);

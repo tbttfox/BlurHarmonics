@@ -142,8 +142,7 @@ double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey
 // Solve the simple harmonic for the given time value
 Vec3 harmonicSolver(
 		double time, double waves, double length, double amp, double decay, double term,
-        const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &cache,
-		bool ignoreInitialAccel
+		bool matchVelocity, const HarmCacheMap &cache, bool ignoreInitialAccel
         ){
 
     Vec3 val = {0.0, 0.0, 0.0};
@@ -175,7 +174,7 @@ Vec3 harmonicSolver(
 		crv = sin(step * p2l) * ((1.0 - term) * (exp(step*dl) - step*edl) + term);
 
         for (size_t i=0; i<3; ++i){
-            val[i] -= accel[i] * crv * mvel * ampAxis[i];
+            val[i] -= accel[i] * crv * mvel;
         }
 
         step += std::get<0>(it->second);

@@ -19,6 +19,5 @@ double handleEdge(const HarmCacheMap &cache, const HarmCacheCIt &it, double tKey
 
 Vec3 harmonicSolver(double time,
         double waves, double length, double amp, double decay, double term,
-        const Vec3 &ampAxis, bool matchVelocity, const HarmCacheMap &accel,
-		bool ignoreInitialAccel);
+        bool matchVelocity, const HarmCacheMap &accel, bool ignoreInitialAccel);
 
