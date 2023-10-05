@@ -567,8 +567,6 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
     } 
     else if( plug == aOutput || plug == aOutputX || plug == aOutputY || plug == aOutputZ ) {
 		MDataHandle enabledH = data.inputValue(aEnabled, &status);
-		bool enabled = enabledH.asBool();
-        if (!enabled) return status;
 
 		MDataHandle clearH = data.inputValue(aClear, &status); // doUpdate
 		bool clear = clearH.asBool();
@@ -581,8 +579,23 @@ MStatus harmonics::compute( const MPlug& plug, MDataBlock& data ){
 			MCHECKERROR(status);
 			status = clearCaches(data, aAccelCache);
 			MCHECKERROR(status);
-			return status;
 		}
+
+		bool enabled = enabledH.asBool();
+        if (!enabled) {
+            // If we're not enabled, zero the output
+            MDataHandle outH = data.outputValue(aOutput, &status);
+            MCHECKERROR(status);
+            outH.set3Double(0.0, 0.0, 0.0);
+            data.setClean(aOutputX);
+            data.setClean(aOutputY);
+            data.setClean(aOutputZ);
+            data.setClean(aOutput);
+        }
+        
+		if (clear || !enabled) {
+            return status;
+        }
 
 		// bool
         MDataHandle normAmpH = data.inputValue(aNormAmp, &status);
