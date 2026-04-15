@@ -151,13 +151,15 @@ endif
 
 if maya_link_opengl
   gl_dep = dependency('gl', method : 'system')
-  if build_machine.system() == 'windows'
+  maya_libs += gl_dep
+  if os_name == 'windows'
     cmplr = meson.get_compiler('cpp')
     glu_dep = cmplr.find_library('glu32', required : true)
-  else
+    maya_libs += glu_dep
+  elif os_name == 'linux'
     glu_dep = dependency('glu')
+    maya_libs += glu_dep
   endif
-  maya_libs += [gl_dep, glu_dep]
 endif
 
 
